@@ -1,0 +1,7 @@
+node_modules
+dist
+.env.local
+.env*.local
+# Unused YouVersion experiment — would otherwise deploy as live serverless functions.
+api
+lib/youversion.js
