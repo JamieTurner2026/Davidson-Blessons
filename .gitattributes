@@ -1,0 +1,4 @@
+# Never rewrite line endings in binary files (Windows autocrlf can corrupt them).
+*.pdf binary
+*.png binary
+*.jpg binary
