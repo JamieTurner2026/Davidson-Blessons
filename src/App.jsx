@@ -69,19 +69,19 @@ export default function App() {
 
   useEffect(() => {
     if (!book || !chapter) return;
-    let cancelled = false;
+    // Aborting stops the polling loop when the reader leaves this chapter; the
+    // bridge keeps fetching in the background and caches the result anyway.
+    const controller = new AbortController();
     setChapterState({ status: "loading" });
-    getChapter(book.name, chapter).then((result) => {
-      if (cancelled) return;
+    getChapter(book.name, chapter, { signal: controller.signal }).then((result) => {
+      if (controller.signal.aborted) return;
       if (!result.ok) {
         setChapterState({ status: "error", message: result.message });
       } else {
         setChapterState({ status: "loaded", data: result });
       }
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [book, chapter]);
 
   function markCompleted() {
@@ -208,8 +208,13 @@ export default function App() {
             </h2>
 
             {chapterState.status === "loading" && (
-              <div className="flex items-center gap-2 text-[#EDE6D6]/60 text-sm py-10 justify-center">
-                <Loader2 className="spin" size={18} /> Asking your notebook&hellip;
+              <div className="py-10 text-center">
+                <div className="flex items-center gap-2 text-[#EDE6D6]/60 text-sm justify-center">
+                  <Loader2 className="spin" size={18} /> Asking your notebook&hellip;
+                </div>
+                <p className="text-[11px] text-[#EDE6D6]/35 mt-2">
+                  A chapter's first visit takes 1–2 minutes. After that it loads instantly.
+                </p>
               </div>
             )}
 

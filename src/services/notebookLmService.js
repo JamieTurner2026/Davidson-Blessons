@@ -32,7 +32,21 @@ function writeCache(cache) {
   }
 }
 
-export async function getChapter(book, chapter, { forceRefresh = false } = {}) {
+// A new chapter takes the bridge 1-2+ minutes, so the bridge answers 202
+// ("still working") right away and keeps fetching in the background; we
+// check back every few seconds. No single request is held open long enough
+// for a browser, extension, or sleeping tab to cut it off.
+const POLL_MS = 4000;
+const GIVE_UP_MS = 8 * 60 * 1000;
+const MAX_NETWORK_RETRIES = 3;
+
+const sleep = (ms, signal) =>
+  new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
+  });
+
+export async function getChapter(book, chapter, { forceRefresh = false, signal } = {}) {
   const key = `${book}:${chapter}`;
   if (!forceRefresh) {
     const cached = readCache()[key];
@@ -47,18 +61,37 @@ export async function getChapter(book, chapter, { forceRefresh = false } = {}) {
     };
   }
 
+  const url = `${BRIDGE_URL}/api/chapter?book=${encodeURIComponent(book)}&chapter=${encodeURIComponent(chapter)}`;
+  const deadline = Date.now() + GIVE_UP_MS;
+  let networkFailures = 0;
   let res;
-  try {
-    res = await fetch(
-      `${BRIDGE_URL}/api/chapter?book=${encodeURIComponent(book)}&chapter=${encodeURIComponent(chapter)}`,
-      { headers: { "X-App-Secret": BRIDGE_SECRET } }
-    );
-  } catch {
-    return {
-      ok: false,
-      reason: "UNREACHABLE",
-      message: "Can't reach NotebookLM right now. Make sure your bridge server is running.",
-    };
+
+  while (true) {
+    if (signal?.aborted) return { ok: false, reason: "CANCELLED", message: "" };
+    try {
+      res = await fetch(url, { headers: { "X-App-Secret": BRIDGE_SECRET }, signal });
+      networkFailures = 0;
+    } catch {
+      if (signal?.aborted) return { ok: false, reason: "CANCELLED", message: "" };
+      if (++networkFailures > MAX_NETWORK_RETRIES) {
+        return {
+          ok: false,
+          reason: "UNREACHABLE",
+          message: "Can't reach NotebookLM right now. Make sure your bridge server is running.",
+        };
+      }
+      await sleep(POLL_MS, signal);
+      continue;
+    }
+    if (res.status !== 202) break;
+    if (Date.now() > deadline) {
+      return {
+        ok: false,
+        reason: "TIMEOUT",
+        message: "NotebookLM is taking unusually long. Try this chapter again in a few minutes.",
+      };
+    }
+    await sleep(POLL_MS, signal);
   }
 
   let body = null;
