@@ -35,7 +35,7 @@ const withBold = (s) =>
     )
   );
 
-function renderLiteMarkdown(text) {
+function renderLiteMarkdown(text, headingColor = "text-[#C9A34E]") {
   if (!text) return null;
   const out = [];
   let para = [];
@@ -76,7 +76,7 @@ function renderLiteMarkdown(text) {
       flushPara();
       flushList();
       out.push(
-        <p key={out.length} className="font-semibold text-[#C9A34E] mb-2 mt-4 first:mt-0">
+        <p key={out.length} className={`font-semibold ${headingColor} mb-2 mt-4 first:mt-0`}>
           {withBold(heading[1])}
         </p>
       );
@@ -291,7 +291,7 @@ export default function App() {
                     </div>
                     {chapterState.data.rawAvailable ? (
                       <div className="serif-display text-[17px] leading-snug">
-                        {renderLiteMarkdown(chapterState.data.rawText)}
+                        {renderLiteMarkdown(chapterState.data.rawText, "text-[#7A3B3B]")}
                       </div>
                     ) : (
                       <p className="text-sm italic text-[#7A3B3B]">

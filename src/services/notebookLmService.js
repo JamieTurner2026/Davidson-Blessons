@@ -14,7 +14,9 @@ const BRIDGE_URL =
   import.meta.env.VITE_NOTEBOOKLM_BRIDGE_URL ||
   (import.meta.env.DEV ? "http://localhost:8484" : "");
 const BRIDGE_SECRET = import.meta.env.VITE_NOTEBOOKLM_BRIDGE_SECRET || "";
-const CACHE_KEY = "davison-blesson-chapter-cache-v1";
+// v2: Scripture text was re-parsed (section headings split out of verses), so
+// drop chapters cached with the old text.
+const CACHE_KEY = "davison-blesson-chapter-cache-v2";
 
 function readCache() {
   try {
