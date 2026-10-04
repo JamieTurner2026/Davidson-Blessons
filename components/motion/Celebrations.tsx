@@ -7,22 +7,34 @@ import { Lamp } from "@/components/motion/Lamp";
 import { MOTION_OK, MOTION_REDUCED, gsap, useGSAP } from "@/components/motion/gsap";
 import { getBadge } from "@/data/badges";
 import { DIVISIONS } from "@/data/divisions";
-import { dismiss, useCelebrations, type Celebration } from "@/lib/celebrations";
+import { dismiss, useCelebrations, type Celebration, type Origin, type SoundName } from "@/lib/celebrations";
 import { getBook } from "@/lib/canon";
-import { DAILY_GOAL, LEVELS } from "@/lib/game";
+import { DAILY_GOAL, LEVELS, pilgrimStage } from "@/lib/game";
+import { play } from "@/lib/sound";
+import { equippedItem, useStudy } from "@/lib/study-store";
 
 // ── Hand-drawn confetti (marigold, ink, ash — the Woset palette only) ──
 
-const CONFETTI_SHAPES = [
-  "M2 8c3-6 5 6 8 0s5 6 8 0", // squiggle
-  "M10 2c5 3 5 11 0 14C5 13 5 5 10 2z", // leaf
-  "M10 1l2.4 6 6.4.4-5 4 1.6 6.3L10 14.3 4.6 17.7l1.6-6.3-5-4 6.4-.4z", // star
-  "M4 4l12 12M16 4L4 16", // tiny cross
-];
+const SQUIGGLE = "M2 8c3-6 5 6 8 0s5 6 8 0";
+const LEAF = "M10 2c5 3 5 11 0 14C5 13 5 5 10 2z";
+const STAR = "M10 1l2.4 6 6.4.4-5 4 1.6 6.3L10 14.3 4.6 17.7l1.6-6.3-5-4 6.4-.4z";
+const CROSS = "M4 4l12 12M16 4L4 16";
+const DOVE = "M2 11c3-1 5-4 8-4 2 0 3 1 4 2l4-3-1 5c-1 3-4 5-8 5-3 0-5-1-7-5z";
+const MOON = "M13 2a8 8 0 1 0 5 13 7 7 0 0 1-5-13z";
+
+/** Shape sets — the Workshop's "Celebrations" slot picks one. */
+export const CONFETTI_SETS: Record<string, string[]> = {
+  "confetti-squiggles": [SQUIGGLE, LEAF, STAR, CROSS],
+  "confetti-leaves": [LEAF, LEAF, SQUIGGLE, LEAF],
+  "confetti-doves": [DOVE, LEAF, DOVE, CROSS],
+  "confetti-stars": [STAR, MOON, STAR, CROSS],
+};
 const CONFETTI_COLORS = ["var(--ws-accent)", "var(--ws-fg)", "var(--ws-border)", "var(--ws-accent)"];
 
 function Confetti({ pieces = 34 }: { pieces?: number }): ReactNode {
   const root = useRef<HTMLDivElement>(null);
+  const { equipped } = useStudy();
+  const shapes = CONFETTI_SETS[equippedItem(equipped, "confetti")] ?? CONFETTI_SETS["confetti-squiggles"];
 
   useGSAP(
     () => {
@@ -49,7 +61,7 @@ function Confetti({ pieces = 34 }: { pieces?: number }): ReactNode {
   return (
     <div ref={root} className="confetti" aria-hidden="true">
       {Array.from({ length: pieces }, (_, index) => {
-        const shape = CONFETTI_SHAPES[index % CONFETTI_SHAPES.length];
+        const shape = shapes[index % shapes.length];
         const color = CONFETTI_COLORS[index % CONFETTI_COLORS.length];
         const filled = index % 4 === 1 || index % 4 === 2;
         return (
@@ -64,11 +76,26 @@ function Confetti({ pieces = 34 }: { pieces?: number }): ReactNode {
 
 // ── XP toast ──────────────────────────────────────────────────────
 
-function XpToast({ id, amount, origin }: { id: number; amount: number; origin: { x: number; y: number } | null }): ReactNode {
+interface ToastProps {
+  id: number;
+  amount: number;
+  oil: number;
+  origin: Origin | null;
+  note?: string;
+  sound?: SoundName;
+}
+
+function XpToast({ id, amount, oil, origin, note, sound }: ToastProps): ReactNode {
   const root = useRef<HTMLDivElement>(null);
+  const played = useRef(false);
 
   useGSAP(
     () => {
+      // StrictMode runs effects twice in dev — play once.
+      if (!played.current) {
+        played.current = true;
+        play(sound ?? "chime");
+      }
       const done = (): void => dismiss(id);
       const mm = gsap.matchMedia();
       mm.add(MOTION_OK, () => {
@@ -90,7 +117,8 @@ function XpToast({ id, amount, origin }: { id: number; amount: number; origin: {
 
   return (
     <div ref={root} className="xp-toast" style={style} role="status">
-      +{amount} XP
+      {[amount > 0 ? `+${amount} XP` : null, oil > 0 ? `+${oil} oil` : null].filter(Boolean).join(" · ")}
+      {note && <span className="xp-toast__note">{note}</span>}
     </div>
   );
 }
@@ -120,8 +148,19 @@ function contentFor(event: Celebration): ModalContent | null {
       return {
         eyebrow: "You've grown",
         title: LEVELS[event.levelIndex]?.name ?? "New level",
-        body: `Level ${event.levelIndex + 1} of ${LEVELS.length}. Keep putting down roots.`,
-        media: <Image src="/art/wisdom.webp" alt="" width={300} height={200} className="celebration__art" />,
+        body:
+          pilgrimStage(event.levelIndex) > pilgrimStage(event.levelIndex - 1)
+            ? `Level ${event.levelIndex + 1}. A new chapter of your journey — your pilgrim has grown too.`
+            : `Level ${event.levelIndex + 1} of ${LEVELS.length}. Keep putting down roots.`,
+        media: (
+          <Image
+            src={`/pilgrim/stage-${pilgrimStage(event.levelIndex) + 1}.webp`}
+            alt=""
+            width={150}
+            height={300}
+            className="celebration__pilgrim"
+          />
+        ),
       };
     case "book": {
       const book = getBook(event.bookId);
@@ -151,8 +190,13 @@ function contentFor(event: Celebration): ModalContent | null {
 
 function CelebrationModal({ id, content }: { id: number; content: ModalContent }): ReactNode {
   const root = useRef<HTMLDivElement>(null);
+  const played = useRef(false);
   useGSAP(
     () => {
+      if (!played.current) {
+        played.current = true;
+        play("bell");
+      }
       const mm = gsap.matchMedia();
       mm.add(MOTION_OK, () => {
         gsap
@@ -208,7 +252,17 @@ export function Celebrations(): ReactNode {
   return (
     <>
       {toasts.map((item) =>
-        item.event.kind === "xp" ? <XpToast key={item.id} id={item.id} amount={item.event.amount} origin={item.event.origin} /> : null,
+        item.event.kind === "xp" ? (
+          <XpToast
+            key={item.id}
+            id={item.id}
+            amount={item.event.amount}
+            oil={item.event.oil}
+            origin={item.event.origin}
+            note={item.event.note}
+            sound={item.event.sound}
+          />
+        ) : null,
       )}
       {modal && content && <CelebrationModal key={modal.id} id={modal.id} content={content} />}
       {modal && !content && <DismissUnknown id={modal.id} />}

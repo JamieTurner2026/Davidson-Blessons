@@ -10,8 +10,10 @@ export interface Origin {
   y: number;
 }
 
+export type SoundName = "chime" | "page" | "quill" | "bell" | "tick" | "thud" | "pour";
+
 export type Celebration =
-  | { kind: "xp"; amount: number; origin: Origin | null }
+  | { kind: "xp"; amount: number; oil: number; origin: Origin | null; note?: string; sound?: SoundName }
   | { kind: "goal" }
   | { kind: "level"; levelIndex: number }
   | { kind: "badge"; badgeId: string }

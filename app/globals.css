@@ -380,3 +380,151 @@ a.tile:hover { border-color: var(--ws-accent); }
   .nav-streak { order: -1; }
   .ws-nav::after { content: ""; order: -1; flex-basis: 100%; height: 0; }
 }
+
+/* ══ v3: journey layer ═════════════════════════════════════════════ */
+.xp-toast { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+.xp-toast__note { font-size: 12px; font-weight: var(--font-weight-regular); }
+.celebration__pilgrim { width: auto; height: 220px; display: block; }
+
+/* Challenge sheet */
+.challenge { width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; align-items: stretch; text-align: left; gap: 16px; }
+.challenge__progress { display: flex; gap: 6px; }
+.challenge__progress > span { flex: 1; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ws-border) 60%, var(--ws-bg)); transition: background-color 300ms; }
+.challenge__progress > span.is-done { background: var(--ws-fg); }
+.challenge__progress > span.is-now { background: var(--ws-accent); }
+.challenge__question { display: flex; flex-direction: column; gap: 14px; }
+.challenge__clue { margin: 0; font-size: 17px; line-height: 1.5; padding: 14px 16px; border: var(--border-hairline); border-radius: 18px; }
+.challenge__options { display: flex; flex-direction: column; gap: 8px; }
+.challenge__option { white-space: normal; text-align: left; line-height: 1.35; justify-content: flex-start; border-radius: 18px; padding: 12px 16px 10px; }
+.challenge__ordered { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.challenge__ordered li { padding: 6px 10px; border-radius: 10px; background: var(--ws-accent-wash); }
+.challenge__results { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding-block: 8px; }
+.challenge__stars { display: flex; gap: 8px; }
+
+/* Reader extras */
+.combo-meter { display: inline-flex; align-items: center; gap: 8px; border: var(--border-hairline); border-radius: var(--radius-pill); padding: 7px 12px 5px; line-height: 1; }
+.combo-meter__dots { display: inline-flex; gap: 3px; }
+.combo-meter__dots > span { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--ws-fg); }
+.combo-meter__dots > span.is-on { background: var(--ws-accent); border-color: var(--ws-accent); }
+.chapter-end { flex-direction: column; align-items: center; gap: 12px; }
+.chapter-end__stars { display: inline-flex; gap: 2px; }
+.verse.is-treasure .verse__num { color: var(--ws-fg); background: var(--ws-accent); border-radius: 4px; padding: 0 3px; animation: treasure-shimmer 1.6s ease-in-out infinite; }
+@keyframes treasure-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* Reading paper (Workshop) — faint flat line patterns, no gradients */
+.scripture[data-paper="paper-linen"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M0 0L8 8M8 0L0 8' stroke='%23bbbab7' stroke-width='0.5' opacity='0.45'/%3E%3C/svg%3E");
+  padding: 22px; border-radius: 18px;
+}
+.scripture[data-paper="paper-laid"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='6'%3E%3Cpath d='M0 5.5H120' stroke='%23bbbab7' stroke-width='0.5' opacity='0.5'/%3E%3Cpath d='M60 0V6' stroke='%23bbbab7' stroke-width='0.6' opacity='0.5'/%3E%3C/svg%3E");
+  padding: 22px; border-radius: 18px;
+}
+
+/* Journey trail */
+.trail { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.trail__landmark { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; width: min(420px, 100%); }
+.trail__landmark img { width: 100%; height: auto; display: block; }
+.trail__canvas { position: relative; max-width: 100%; }
+.trail__svg { position: absolute; inset: 0; overflow: visible; }
+.trail__ahead { fill: none; stroke: var(--ws-border); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 9; }
+.trail__walked { fill: none; stroke: var(--ws-fg); stroke-width: 3; stroke-linecap: round; }
+.trail__node {
+  position: absolute;
+  border-radius: 50%;
+  border: var(--border-hairline);
+  background: var(--ws-bg);
+  display: grid;
+  place-items: center;
+  font-weight: var(--font-weight-medium);
+  transition: transform 160ms var(--ease-quiet), border-color 160ms;
+  z-index: 1;
+}
+.trail__node:hover { text-decoration: none; border-color: var(--ws-fg); transform: scale(1.06); }
+.trail__node.is-done { background: var(--ws-accent); border-color: var(--ws-fg); }
+.trail__node.is-next { border: 2px solid var(--ws-fg); background: var(--ws-bg); }
+.trail__number { line-height: 1; padding-top: 2px; }
+.trail__pulse { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--ws-accent); pointer-events: none; }
+.trail__stars { position: absolute; bottom: -16px; left: 50%; translate: -50% 0; display: flex; gap: 1px; }
+.pilgrim { position: absolute; translate: -50% -100%; z-index: 2; pointer-events: none; display: flex; align-items: flex-end; }
+.pilgrim__figure { height: 112px; width: auto; display: block; }
+.pilgrim__lamb { height: 42px; width: auto; margin-left: -10px; }
+.pilgrim__dove { position: absolute; top: -18px; right: -30px; height: 34px; width: auto; }
+
+/* Journey picker */
+.journeys { display: flex; flex-direction: column; gap: 26px; width: 100%; }
+.journeys__row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.journey-chip { display: flex; align-items: center; gap: 10px; border: var(--border-hairline); border-radius: var(--radius-pill); padding: 6px 12px 6px 6px; text-align: left; font: inherit; letter-spacing: inherit; background: var(--ws-bg); color: var(--ws-fg); cursor: pointer; }
+.journey-chip:hover { border-color: var(--ws-accent); background: var(--ws-accent-wash); text-decoration: none; }
+.journey-chip[aria-current="true"] { border-color: var(--ws-fg); }
+.journey-chip__meta { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; min-width: 0; }
+.journey-chip__meta span:last-child { font-size: 12px; color: var(--ws-muted); }
+.nav-icon { appearance: none; background: none; border: 0; color: var(--ws-fg); cursor: pointer; padding: 4px; border-radius: 50%; display: inline-grid; place-items: center; }
+.nav-icon:hover { background: var(--ws-accent-wash); }
+.nav-icon[aria-pressed="false"] { color: var(--ws-muted); }
+.nav-oil { padding: 4px 11px 2px 8px; gap: 5px; }
+.home-trail { display: flex; flex-direction: column; gap: 22px; }
+.lords-day { text-align: center; padding: 10px 16px 8px; border: var(--border-hairline); border-radius: var(--radius-pill); align-self: center; }
+@media (max-width: 640px) { .nav-icon, .nav-oil { order: -1; } }
+
+/* Workshop */
+.workshop__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 22px; }
+.workshop__item { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.workshop__preview { width: 100%; aspect-ratio: 3 / 2; border: var(--border-hairline); border-radius: 18px; display: grid; place-items: center; overflow: hidden; }
+.workshop__item.is-equipped .workshop__preview { border-color: var(--ws-fg); }
+.workshop__glyphs { display: flex; gap: 10px; }
+.workshop__paper { font-size: 14px; line-height: 1.5; padding: 14px !important; margin: 10px; border-radius: 12px; }
+.workshop__companion { display: flex; align-items: flex-end; gap: 2px; }
+.hunt { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; border: var(--border-hairline); border-radius: 18px; padding: 12px 16px; }
+.hunt__word { appearance: none; border: 0; background: var(--ws-accent-wash); font: inherit; letter-spacing: inherit; padding: 0 6px; border-radius: 6px; cursor: pointer; color: var(--ws-fg); }
+.pilgrim-card { display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: center; border: var(--border-hairline); border-radius: 24px; padding: 22px 26px; }
+.pilgrim-card__figure { height: 200px; width: auto; }
+@media (max-width: 560px) { .pilgrim-card { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
+
+/* ══ v3.1: lessons & games ════════════════════════════════════════ */
+.lesson { width: min(640px, 100%); margin-inline: auto; display: flex; flex-direction: column; gap: 26px; }
+.lesson__top { display: flex; align-items: center; gap: 14px; }
+.lesson__progress { flex: 1; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--ws-border) 55%, var(--ws-bg)); overflow: hidden; }
+.lesson__progress > span { display: block; height: 100%; background: var(--ws-accent); transform-origin: left center; transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.lesson__best { display: inline-flex; gap: 1px; }
+.lesson__stage { min-height: 360px; }
+.lesson__passage, .lesson__round { display: flex; flex-direction: column; gap: 18px; }
+.lesson__text { border: var(--border-hairline); border-radius: 22px; padding: 22px 24px; }
+.challenge__clue--question { font-weight: var(--font-weight-medium); font-size: 19px; }
+.match { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
+.match__col { display: flex; flex-direction: column; gap: 8px; }
+.match__col .ws-pill[aria-pressed="true"] { border-color: var(--ws-fg); background: var(--ws-accent-wash); }
+.game { width: min(640px, 100%); margin-inline: auto; display: flex; flex-direction: column; gap: 22px; }
+.game__stage { min-height: 380px; }
+.game__score { font-size: var(--text-display-fluid); line-height: 1; letter-spacing: var(--tracking-display); font-weight: var(--font-weight-medium); }
+.play-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--element-gap); }
+@media (max-width: 640px) { .play-grid { grid-template-columns: 1fr; } }
+.play-card { appearance: none; font: inherit; letter-spacing: inherit; color: var(--ws-fg); background: var(--ws-bg); text-align: left; border: var(--border-hairline); border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 10px; min-height: 170px; cursor: pointer; transition: border-color 160ms, background-color 160ms, transform 160ms var(--ease-quiet); }
+.play-card:hover { border-color: var(--ws-accent); background: var(--ws-accent-wash); }
+.play-card:active { transform: scale(0.98); }
+.play-card__meta { margin-top: auto; font-size: 13px; color: var(--ws-muted); }
+/* Flip cards */
+.flip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .flip-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.flip { appearance: none; border: 0; padding: 0; background: none; aspect-ratio: 3 / 4; perspective: 700px; cursor: pointer; font: inherit; letter-spacing: inherit; color: var(--ws-fg); }
+.flip__inner { position: relative; display: block; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 380ms cubic-bezier(0.3, 0.7, 0.3, 1); }
+.flip.is-up .flip__inner { transform: rotateY(180deg); }
+.flip__back, .flip__front { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 14px; border: var(--border-hairline); backface-visibility: hidden; padding: 8px; text-align: center; font-size: 13px; line-height: 1.25; }
+.flip__back { background: var(--ws-bg); font-size: 20px; color: var(--ws-muted-soft); }
+.flip:hover .flip__back { background: var(--ws-accent-wash); }
+.flip__front { transform: rotateY(180deg); background: var(--ws-bg); border-color: var(--ws-fg); }
+.flip.is-matched .flip__front { background: var(--ws-accent); border-color: var(--ws-accent); }
+/* Lightning */
+.lightning__clock { font-size: var(--text-heading); font-weight: var(--font-weight-medium); font-variant-numeric: tabular-nums; }
+.lightning__card { display: flex; flex-direction: column; gap: 14px; }
+.lightning__buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lightning__buttons .ws-pill { justify-content: center; text-align: center; padding-block: 16px 14px; }
+/* Checkpoint node on the trail */
+.trail__checkpoint { position: absolute; width: 34px; height: 34px; translate: -50% -50%; rotate: 45deg; border: 1.5px solid var(--ws-fg); background: var(--ws-bg); display: grid; place-items: center; z-index: 1; border-radius: 6px; transition: background-color 160ms; }
+.trail__checkpoint > span { rotate: -45deg; font-size: 13px; }
+.trail__checkpoint:hover { background: var(--ws-accent-wash); text-decoration: none; }
+.trail__checkpoint.is-done { background: var(--ws-accent); }
+.pilgrim__body { position: relative; display: flex; align-items: flex-end; }
+/* Stop pop-in is CSS (can't be left half-finished by an interrupted tween). */
+.trail__node { animation: trail-node-in 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(var(--i, 0) * 30ms); }
+@keyframes trail-node-in { from { opacity: 0; scale: 0.4; } to { opacity: 1; scale: 1; } }

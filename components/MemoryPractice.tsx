@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react
 
 import { MOTION_OK, gsap, useGSAP } from "@/components/motion/gsap";
 import { originOf } from "@/lib/celebrations";
+import { play } from "@/lib/sound";
 import { BOX_INTERVALS, MASTERED_BOX, modeForBox, type PracticeMode } from "@/lib/game";
 import { recordPractice, type MemoryCard } from "@/lib/study-store";
 
@@ -57,9 +58,11 @@ function useFeedback(scope: RefObject<HTMLDivElement | null>): { pop: (el: Eleme
   const motionOk = (): boolean => window.matchMedia(MOTION_OK).matches;
   return {
     pop: contextSafe((el: Element | null) => {
+      play("tick");
       if (el && motionOk()) gsap.fromTo(el, { scale: 1.3 }, { scale: 1, duration: 0.45, ease: "back.out(3)" });
     }),
     shake: contextSafe((el: Element | null) => {
+      play("thud");
       if (el && motionOk()) gsap.fromTo(el, { x: -7 }, { x: 0, duration: 0.5, ease: "elastic.out(1.2, 0.25)" });
     }),
   };

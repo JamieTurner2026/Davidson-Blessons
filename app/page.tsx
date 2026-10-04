@@ -6,6 +6,7 @@ import { Fums } from "@/components/Fums";
 import { HomeActions } from "@/components/HomeActions";
 import { QuizCard } from "@/components/QuizCard";
 import { TodayStrip } from "@/components/TodayStrip";
+import { HomeTrail } from "@/components/map/HomeTrail";
 import { Reveal } from "@/components/motion/Reveal";
 import { SplitHeadline } from "@/components/motion/SplitHeadline";
 import { DIVISIONS } from "@/data/divisions";
@@ -59,6 +60,8 @@ export default async function Home(): Promise<ReactNode> {
             ) : null
           }
         />
+
+        <HomeTrail />
 
         {verse && verseRef && (
           <section className="votd" aria-label="Verse of the day">

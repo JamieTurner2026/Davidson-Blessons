@@ -110,6 +110,30 @@ export const BADGES: ReadonlyArray<Badge> = [
     image: "/badges/finisher.webp",
     earned: (s) => s.plansComplete >= 1,
   },
+  {
+    id: "trailblazer",
+    name: "Trailblazer",
+    hint: "Earn 50 stars on the journey map.",
+    blurb: "Fifty stars along the trail.",
+    image: "/badges/trailblazer.webp",
+    earned: (s) => s.starsTotal >= 50,
+  },
+  {
+    id: "treasure-seeker",
+    name: "Treasure Seeker",
+    hint: "Find 10 treasure verses.",
+    blurb: "“Where your treasure is, there your heart will be also.”",
+    image: "/badges/treasure-seeker.webp",
+    earned: (s) => s.treasures >= 10,
+  },
+  {
+    id: "collector",
+    name: "Collector",
+    hint: "Own 4 items from the Workshop.",
+    blurb: "A well-stocked shelf of lamps and keepsakes.",
+    image: "/badges/collector.webp",
+    earned: (s) => s.cosmeticsOwned >= 4,
+  },
 ];
 
 export function getBadge(id: string): Badge | undefined {

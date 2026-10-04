@@ -10,7 +10,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { BADGES } from "@/data/badges";
 import { originOf } from "@/lib/celebrations";
 import { addDays, weekday } from "@/lib/day";
-import { DAILY_GOAL, LEVELS, isLit } from "@/lib/game";
+import { DAILY_GOAL, LEVELS, isLit, pilgrimStage } from "@/lib/game";
 import { booksComplete, checkIn, useGame } from "@/lib/study-store";
 
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -24,7 +24,9 @@ function streakMessage(current: number, restingNow: boolean, litToday: boolean):
 }
 
 export function JourneyClient(): ReactNode {
-  const { state, today, todayXp, level, streak } = useGame();
+  const { state, today, todayXp, level, streak, starsTotal } = useGame();
+  const stage = pilgrimStage(level.index);
+  const stageNames = ["The young traveller", "The walker with a staff", "The lamp-bearer", "The elder"];
   const checkedIn = (state.days[today]?.by.checkin ?? 0) > 0;
   const nextLevel = LEVELS[level.index + 1];
   const books = booksComplete(state.chaptersRead).size;
@@ -45,6 +47,20 @@ export function JourneyClient(): ReactNode {
           <span>{streakMessage(streak.current, streak.restingNow, streak.litToday)}</span>
           <span className="ws-muted">
             Longest {streak.longest} · Perfect weeks {streak.perfectWeeks} · One rest day a week never breaks a streak.
+          </span>
+        </div>
+      </section>
+
+      <section className="pilgrim-card">
+        <Image src={`/pilgrim/stage-${stage + 1}.webp`} alt="Your pilgrim" width={120} height={240} className="pilgrim-card__figure" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <span className="ws-muted">Your pilgrim</span>
+          <span className="tile__big">{stageNames[stage]}</span>
+          <span className="ws-muted">
+            {stage < 3 ? `He grows again at ${LEVELS[(stage + 1) * 2]?.name}.` : "He has walked a long road with you."}
+          </span>
+          <span>
+            ★ {starsTotal} stars · {state.oil} oil · {Object.keys(state.treasures).length} treasures found
           </span>
         </div>
       </section>

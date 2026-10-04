@@ -47,10 +47,12 @@ function GoalRing({ progress }: { progress: number }): ReactNode {
 
 /** Home "Today" strip: goal ring + streak lamp + memory, with the quiz slotted in. */
 export function TodayStrip({ quiz }: { quiz: ReactNode }): ReactNode {
-  const { todayXp, goalProgress, streak, dueCount, level } = useGame();
+  const { todayXp, goalProgress, streak, dueCount, level, lordsDay } = useGame();
 
   return (
-    <section className="today" aria-label="Today">
+    <>
+      {lordsDay && <div className="lords-day">☀ The Lord&apos;s Day — all XP doubled today</div>}
+      <section className="today" aria-label="Today">
       <Link href="/journey" className="tile">
         <span className="ws-muted">Today&apos;s lamp</span>
         <div className="tile__row">
@@ -88,6 +90,7 @@ export function TodayStrip({ quiz }: { quiz: ReactNode }): ReactNode {
       </Link>
 
       {quiz}
-    </section>
+      </section>
+    </>
   );
 }

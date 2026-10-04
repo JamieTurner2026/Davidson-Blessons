@@ -5,14 +5,25 @@ import { z } from "zod";
 
 import { BADGES } from "@/data/badges";
 import { PLANS } from "@/data/plans";
-import { celebrate, type Celebration, type Origin } from "@/lib/celebrations";
+import { COSMETICS, DEFAULT_EQUIPPED, getCosmetic, type CosmeticSlot } from "@/data/cosmetics";
+import { celebrate, type Celebration, type Origin, type SoundName } from "@/lib/celebrations";
 import { BOOKS } from "@/lib/canon";
 import { dayKey, type DayKey } from "@/lib/day";
 import {
   DAILY_GOAL,
   MASTERED_BOX,
+  CHECKPOINT_OIL_PER_STAR,
+  OIL_PER_STAR,
+  SEARCH_TREASURE_OIL,
+  TREASURE_OIL,
+  comboMultiplier,
+  dayMultiplier,
+  isLordsDay,
   levelFor,
+  nextCombo,
   nextReview,
+  oilFromXp,
+  starsFor,
   streakInfo,
   xpFor,
   type Action,
@@ -24,7 +35,7 @@ import {
 
 // Everything personal lives in this browser only. One versioned key, Zod-checked on
 // read so a corrupted or hand-edited value falls back to empty instead of crashing.
-// v2 fields all have defaults, so v1 data loads unchanged.
+// v2/v3 fields all have defaults, so older data loads unchanged.
 
 const STORAGE_KEY = "selah:v1";
 
@@ -54,11 +65,26 @@ const studySchema = z.object({
   memory: z.record(z.string(), memorySchema).default({}),
   quiz: z.record(z.string(), z.object({ correct: z.boolean(), answer: z.string() })).default({}),
   badges: z.record(z.string(), z.string()).default({}),
+  // ── v3: journey ──
+  oil: z.number().int().min(0).default(0),
+  stars: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
+  combo: z.object({ count: z.number().int().min(1), lastAt: z.number() }).nullable().default(null),
+  treasures: z.record(z.string(), z.string()).default({}),
+  searchHunts: z.record(z.string(), z.string()).default({}),
+  owned: z.array(z.string()).default([]),
+  equipped: z
+    .object({ lamp: z.string(), confetti: z.string(), paper: z.string(), companion: z.string() })
+    .default(DEFAULT_EQUIPPED),
+  sound: z.boolean().default(true),
+  // ── v3.1: games ──
+  games: z.record(z.string(), z.object({ best: z.number().int().min(0), plays: z.number().int().min(0) })).default({}),
+  checkpoints: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
 });
 
 export type StudyState = z.infer<typeof studySchema>;
 export type Highlights = StudyState["highlights"];
 export type MemoryCard = z.infer<typeof memorySchema>;
+export type Equipped = StudyState["equipped"];
 
 const EMPTY: StudyState = studySchema.parse({});
 
@@ -137,6 +163,9 @@ function snapshotOf(state: StudyState, today: DayKey): GameSnapshot {
     longestStreak: streak.longest,
     perfectWeeks: streak.perfectWeeks,
     plansComplete: PLANS.filter((plan) => (state.planProgress[plan.id] ?? []).length >= plan.days.length).length,
+    starsTotal: Object.values(state.stars).reduce((sum, value) => sum + value, 0),
+    treasures: Object.keys(state.treasures).length,
+    cosmeticsOwned: state.owned.length,
   };
 }
 
@@ -147,6 +176,8 @@ export interface GameView {
   level: LevelInfo;
   streak: StreakInfo;
   dueCount: number;
+  lordsDay: boolean;
+  starsTotal: number;
 }
 
 export function useGame(): GameView & { state: StudyState } {
@@ -162,16 +193,20 @@ export function useGame(): GameView & { state: StudyState } {
       level: levelFor(state.xp),
       streak: streakInfo(state.days, today),
       dueCount: Object.values(state.memory).filter((card) => card.box < MASTERED_BOX && card.due <= today).length,
+      lordsDay: isLordsDay(today),
+      starsTotal: Object.values(state.stars).reduce((sum, value) => sum + value, 0),
     };
   }, [state]);
 }
 
 // ── The one write path: change state, award XP, detect celebrations ──
 
-function applyAward(state: StudyState, action: Action, today: DayKey): { state: StudyState; gained: number } {
+/** Caps are checked on BASE xp (recorded in `by`); multipliers apply afterwards. */
+function applyAward(state: StudyState, action: Action, today: DayKey, chapterMultiplier: number): { state: StudyState; gained: number } {
   const log: DayLog = state.days[today] ?? { xp: 0, by: {} };
-  const gained = xpFor(action, log);
-  if (gained === 0) return { state, gained };
+  const base = xpFor(action, log);
+  if (base === 0) return { state, gained: 0 };
+  const gained = base * dayMultiplier(today) * (action === "chapter" ? chapterMultiplier : 1);
   const day = state.days[today];
   return {
     gained,
@@ -182,7 +217,7 @@ function applyAward(state: StudyState, action: Action, today: DayKey): { state: 
         ...state.days,
         [today]: {
           xp: (day?.xp ?? 0) + gained,
-          by: { ...(day?.by ?? {}), [action]: (day?.by[action] ?? 0) + gained },
+          by: { ...(day?.by ?? {}), [action]: (day?.by[action] ?? 0) + base },
           chapters: day?.chapters ?? [],
         },
       },
@@ -190,16 +225,33 @@ function applyAward(state: StudyState, action: Action, today: DayKey): { state: 
   };
 }
 
-function mutate(recipe: (state: StudyState, today: DayKey) => StudyState, awards: Action[] = [], origin: Origin | null = null): void {
+interface MutateExtras {
+  /** Reading-combo multiplier for chapter XP. */
+  chapterMultiplier?: number;
+  /** Oil granted on top of the 1-per-5-XP conversion (stars, treasure). Negative to spend. */
+  oil?: number;
+  /** Short label on the XP toast, e.g. "Combo x2". */
+  note?: string;
+  sound?: SoundName;
+}
+
+function mutate(
+  recipe: (state: StudyState, today: DayKey) => StudyState,
+  awards: Action[] = [],
+  origin: Origin | null = null,
+  extras: MutateExtras = {},
+): void {
   const today = dayKey();
   const before = getSnapshot();
   let next = recipe(before, today);
   let gained = 0;
   for (const action of awards) {
-    const result = applyAward(next, action, today);
+    const result = applyAward(next, action, today, extras.chapterMultiplier ?? 1);
     next = result.state;
     gained += result.gained;
   }
+  const oilGained = oilFromXp(before.xp, next.xp) + (extras.oil ?? 0);
+  if (oilGained !== 0) next = { ...next, oil: Math.max(0, next.oil + oilGained) };
 
   const snapshot = snapshotOf(next, today);
   const newBadges = BADGES.filter((badge) => !next.badges[badge.id] && badge.earned(snapshot));
@@ -210,7 +262,10 @@ function mutate(recipe: (state: StudyState, today: DayKey) => StudyState, awards
   write(next);
 
   const events: Celebration[] = [];
-  if (gained > 0) events.push({ kind: "xp", amount: gained, origin });
+  const notes = [extras.note, gained > 0 && isLordsDay(today) ? "Lord's Day x2" : undefined].filter(Boolean).join(" · ");
+  if (gained > 0 || oilGained > 0) {
+    events.push({ kind: "xp", amount: gained, oil: Math.max(0, oilGained), origin, note: notes || undefined, sound: extras.sound });
+  }
   const xpBefore = before.days[today]?.xp ?? 0;
   const xpAfter = next.days[today]?.xp ?? 0;
   if (xpBefore < DAILY_GOAL && xpAfter >= DAILY_GOAL) events.push({ kind: "goal" });
@@ -264,6 +319,7 @@ export function saveNote(verseId: string, text: string, origin: Origin | null = 
     },
     isNew && trimmed ? ["note"] : [],
     origin,
+    { sound: "quill" },
   );
 }
 
@@ -272,18 +328,135 @@ export function saveNote(verseId: string, text: string, origin: Origin | null = 
 /** Called when the reader reaches the end of a chapter after a real read. */
 export function markChapterRead(chapterId: string): void {
   const today = dayKey();
-  if (getSnapshot().days[today]?.chapters.includes(chapterId)) return;
+  const current = getSnapshot();
+  if (current.days[today]?.chapters.includes(chapterId)) return;
+  const combo = nextCombo(current.combo, Date.now());
+  const multiplier = comboMultiplier(combo.count);
+  const firstStar = current.stars[chapterId] ? 0 : 1;
   mutate(
     (state) => {
       const day = state.days[today] ?? { xp: 0, by: {}, chapters: [] };
       return {
         ...state,
+        combo,
+        stars: firstStar ? { ...state.stars, [chapterId]: 1 } : state.stars,
         chaptersRead: state.chaptersRead[chapterId] ? state.chaptersRead : { ...state.chaptersRead, [chapterId]: new Date().toISOString() },
         days: { ...state.days, [today]: { ...day, chapters: [...day.chapters, chapterId] } },
       };
     },
     ["chapter"],
+    null,
+    { chapterMultiplier: multiplier, oil: firstStar * OIL_PER_STAR, note: multiplier > 1 ? `Combo x${multiplier}` : undefined, sound: "page" },
   );
+}
+
+/** Records a challenge run; keeps the best stars and pays only for newly earned ones. */
+export function recordChallenge(chapterId: string, correct: number, total: number, origin: Origin | null = null): number {
+  const earned = starsFor(correct, total);
+  const previous = getSnapshot().stars[chapterId] ?? 0;
+  const newStars = Math.max(0, earned - previous);
+  mutate(
+    (state) => ({ ...state, stars: { ...state.stars, [chapterId]: Math.max(previous, earned) } }),
+    Array<Action>(newStars).fill("challenge-star"),
+    origin,
+    { oil: newStars * OIL_PER_STAR, sound: earned === 3 ? "bell" : "chime" },
+  );
+  return earned;
+}
+
+/** Treasure verses pay out once per chapter. Returns false if already found. */
+export function claimTreasure(chapterId: string, verseId: string, origin: Origin | null = null): boolean {
+  if (getSnapshot().treasures[chapterId]) return false;
+  mutate((state) => ({ ...state, treasures: { ...state.treasures, [chapterId]: verseId } }), [], origin, {
+    oil: TREASURE_OIL,
+    note: "Treasure found!",
+    sound: "chime",
+  });
+  return true;
+}
+
+/** Daily search treasure hunt — once per day. */
+export function claimSearchHunt(day: string, verseId: string, origin: Origin | null = null): boolean {
+  if (getSnapshot().searchHunts[day]) return false;
+  mutate((state) => ({ ...state, searchHunts: { ...state.searchHunts, [day]: verseId } }), [], origin, {
+    oil: SEARCH_TREASURE_OIL,
+    note: "Hunt complete!",
+    sound: "chime",
+  });
+  return true;
+}
+
+// ── Games ─────────────────────────────────────────────────────────
+
+export type GameMode = "trivia" | "match" | "order" | "lightning";
+
+/**
+ * Records a finished game run. `correct` earns XP (2 each, capped daily);
+ * `score` is what "best" tracks (correct answers, or pairs/time-based score).
+ * Returns true when it's a new personal best.
+ */
+export function recordGame(mode: GameMode, correct: number, score: number, origin: Origin | null = null): boolean {
+  const previous = getSnapshot().games[mode];
+  const isBest = !previous || score > previous.best;
+  mutate(
+    (state) => ({
+      ...state,
+      games: { ...state.games, [mode]: { best: Math.max(previous?.best ?? 0, score), plays: (previous?.plays ?? 0) + 1 } },
+    }),
+    Array<Action>(Math.max(0, correct)).fill("game"),
+    origin,
+    { note: isBest && previous ? "New best!" : undefined, sound: isBest ? "bell" : "chime" },
+  );
+  return isBest;
+}
+
+/** Checkpoint review on the trail: keeps best stars, pays oil for new ones. */
+export function recordCheckpoint(key: string, correct: number, total: number, origin: Origin | null = null): number {
+  const earned = starsFor(correct, total);
+  const previous = getSnapshot().checkpoints[key] ?? 0;
+  const newStars = Math.max(0, earned - previous);
+  mutate(
+    (state) => ({ ...state, checkpoints: { ...state.checkpoints, [key]: Math.max(previous, earned) } }),
+    Array<Action>(Math.max(0, correct)).fill("game"),
+    origin,
+    { oil: newStars * CHECKPOINT_OIL_PER_STAR, note: "Checkpoint!", sound: earned === 3 ? "bell" : "chime" },
+  );
+  return earned;
+}
+
+// ── Workshop ──────────────────────────────────────────────────────
+
+export function buyCosmetic(id: string, origin: Origin | null = null): boolean {
+  const item = getCosmetic(id);
+  const state = getSnapshot();
+  if (!item || item.price === 0 || state.owned.includes(id) || state.oil < item.price) return false;
+  mutate(
+    (current) => ({ ...current, owned: [...current.owned, id], equipped: { ...current.equipped, [item.slot]: id } }),
+    [],
+    origin,
+    { oil: -item.price, sound: "pour" },
+  );
+  return true;
+}
+
+export function equipCosmetic(id: string): void {
+  const item = getCosmetic(id);
+  const state = getSnapshot();
+  if (!item || (item.price > 0 && !state.owned.includes(id))) return;
+  write({ ...state, equipped: { ...state.equipped, [item.slot]: id } });
+}
+
+export function equippedItem(equipped: Equipped, slot: CosmeticSlot): string {
+  const id = equipped[slot];
+  return COSMETICS.some((item) => item.id === id && item.slot === slot) ? id : DEFAULT_EQUIPPED[slot];
+}
+
+export function setSound(on: boolean): void {
+  write({ ...getSnapshot(), sound: on });
+}
+
+export function soundEnabled(): boolean {
+  return getSnapshot().sound;
 }
 
 export function checkIn(origin: Origin | null = null): void {

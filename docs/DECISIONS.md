@@ -28,3 +28,20 @@
 - **Animation: GSAP 3.15 + @gsap/react** (`useGSAP` for cleanup, SplitText headline, Physics2D confetti). All motion behind `gsap.matchMedia()` reduced-motion checks. Approved deviation from Woset's "quiet colour-only motion"; still no shadows/gradients, marigold the only filled accent, confetti uses only marigold/ink/ash.
 - **12 Magnific badge medallions** (Recraft V4.1, hero as style reference, ~780 credits incl. one redo). Recraft can't count small repeated items (Perfect Week came back with 8 then 6 stars) — fixed in post by re-laying 7 copies of one star along the arc. Badges normalised to the drawn circle and paper-tinted to Pebble.
 - **Gotcha:** `.ring` is a Tailwind utility (draws an outline) — our class is `.goal-ring`. Avoid Tailwind utility names for custom classes.
+
+## 2026-10-04 — v3 + v3.1: the journey & games
+
+- **Journey map is the spine.** Each book = a journey, each chapter = a stop (`components/map/Trail.tsx`). Stops open **lessons**; scripture is never locked — any chapter can be read or played any time.
+- **Pilgrim avatar** — a Black man of African descent, drawn in four life stages that follow your level (Seedream 5 Pro, stage 1 as image reference for face consistency; backgrounds removed). Lamb/dove companions from the Workshop.
+- **Lessons** (`/lesson/...`): chapter split into ≤4 passage cards, each followed by 1–2 rounds generated from those verses (finish the verse, what comes next, put in order, fill the blank, verse match) plus up to 2 curated bank questions for that chapter. Stars by accuracy (≥60% → 2★, ≥90% → 3★). The lesson itself marks the chapter read (no 20-s rule).
+- **Curated bank** (`data/trivia.ts`, ~210 items: trivia, who-said-it, pairs, timelines), each tied to a BSB verse. `scripts/verify-trivia.ts` checks every ref and that who-said quotes appear in the verse (0 failures; warnings reviewed by hand).
+- **Play hub** (`/play`): Trivia, Memory match, Order up, Lightning round (60 s), Daily mix (same 8 for everyone per day), and **checkpoints** every 5 stops. Seeds derive from play counts — no randomness during render.
+- **Economy**: oil = 1 per 5 XP + 3 per star (+5/star at checkpoints) + treasure verses (+15) + search hunt (+10). Workshop sells lamps, confetti sets, reading paper, companions. All XP sources capped daily; `game` XP cap 60/day verified.
+- **Bonuses**: reading combo (x2 from 3 chapters in 45-min gaps, x3 from 5), Lord's Day double XP on Sundays (multipliers applied after caps).
+- **Sound**: 7 Magnific/ElevenLabs effects in `public/sfx`, mute toggle in the nav (persisted).
+- **Gotchas found while testing:**
+  - GSAP merges a CSS `translate` on the element it animates into its own transform and lost `-100%` — keep CSS anchoring on a wrapper, animate an inner element (pilgrim).
+  - Trail node pop-in uses a CSS keyframe, not a GSAP `from()` — the tween was being left half-finished.
+  - Round SVG/position math (`Math.sin`) to 1 decimal so server and browser render identical HTML (hydration).
+  - API.Bible JSON splits verses into runs that may lack a joining space — `versesFromBlocks` inserts one.
+  - Hidden/background browser tabs pause `requestAnimationFrame`, freezing GSAP tweens — test animations in the foreground.

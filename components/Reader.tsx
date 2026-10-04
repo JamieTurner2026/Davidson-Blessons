@@ -2,11 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { ChallengeSheet, Star } from "@/components/ChallengeSheet";
 import { originOf } from "@/lib/celebrations";
-import { verseLabel } from "@/lib/canon";
+import { chapterLabel, parseChapterId, verseLabel } from "@/lib/canon";
+import type { ChapterVerse } from "@/lib/challenge";
 import { dayKey } from "@/lib/day";
+import { COMBO_WINDOW_MS, MAX_STARS, TREASURE_OIL, comboMultiplier, treasureVerse } from "@/lib/game";
 import type { Block } from "@/lib/schemas";
-import { highlightVerses, markChapterRead, memorize, saveNote, setLastRead, useStudy } from "@/lib/study-store";
+import {
+  claimTreasure,
+  equippedItem,
+  highlightVerses,
+  markChapterRead,
+  memorize,
+  saveNote,
+  setLastRead,
+  useStudy,
+} from "@/lib/study-store";
 
 /** A chapter only counts as read after this long on the page — skimming doesn't. */
 const MIN_READ_MS = 20_000;
@@ -82,10 +94,42 @@ function NoteEditor({ verseId, initial }: { verseId: string; initial: string }):
 }
 
 export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
-  const { highlights, notes, memory, days } = useStudy();
+  const { highlights, notes, memory, days, chaptersRead, stars, combo, treasures, equipped } = useStudy();
   const readToday = days[dayKey()]?.chapters.includes(chapterId) ?? false;
+  const everRead = Boolean(chaptersRead[chapterId]);
   const endMarker = useRef<HTMLDivElement>(null);
   const texts = useMemo(() => verseTextMap(blocks), [blocks]);
+  const verses = useMemo<ChapterVerse[]>(
+    () =>
+      [...texts.entries()]
+        .map(([id, text]) => ({ number: Number(id.split(".")[2]), text: text.trim() }))
+        .filter((verse) => Number.isFinite(verse.number))
+        .sort((a, b) => a.number - b.number),
+    [texts],
+  );
+  const treasureNumber = useMemo(() => treasureVerse(chapterId, verses.map((verse) => verse.number)), [chapterId, verses]);
+  const treasureId = treasureNumber === null ? null : `${chapterId}.${treasureNumber}`;
+  const [treasureVisible, setTreasureVisible] = useState(false);
+  const treasureLive = treasureVisible && treasureId !== null && !treasures[chapterId];
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  // Wall-clock "now", refreshed on a timer (never read during render) for the combo meter.
+  const [now, setNow] = useState(0);
+  const comboActive = combo !== null && now > 0 && now - combo.lastAt <= COMBO_WINDOW_MS;
+  const place = parseChapterId(chapterId);
+  const label = place ? chapterLabel(place) : chapterId;
+
+  useEffect(() => {
+    const tick = (): void => setNow(Date.now());
+    const first = window.setTimeout(tick, 0);
+    const interval = window.setInterval(tick, 30_000);
+    // Treasure verses reveal their shimmer only after a real read.
+    const reveal = window.setTimeout(() => setTreasureVisible(true), MIN_READ_MS);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(interval);
+      window.clearTimeout(reveal);
+    };
+  }, [chapterId]);
   // Arriving from search with #JHN.3.16 pre-selects that verse until the reader taps something.
   const hash = useHash();
   const hashSelection = useMemo(() => new Set(texts.has(hash) ? [hash] : []), [hash, texts]);
@@ -164,7 +208,7 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
 
   return (
     <>
-      <div className="scripture">
+      <div className="scripture" data-paper={equippedItem(equipped, "paper")}>
         {blocks.map((block, blockIndex) => {
           if (block.kind === "heading") return <h3 key={blockIndex}>{block.text}</h3>;
           if (block.kind === "crossref") return <p key={blockIndex} className="crossref">{block.text}</p>;
@@ -179,6 +223,7 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
                   "verse",
                   highlights[verseId] ? "is-highlighted" : "",
                   selected.has(verseId) ? "is-selected" : "",
+                  treasureLive && verseId === treasureId ? "is-treasure" : "",
                 ].join(" ");
                 return (
                   <span
@@ -208,14 +253,38 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
       </div>
 
       <div ref={endMarker} className="chapter-end" aria-live="polite">
+        {everRead && (
+          <span className="chapter-end__stars" aria-label={`${stars[chapterId] ?? 0} of ${MAX_STARS} stars`}>
+            {Array.from({ length: MAX_STARS }, (_, index) => (
+              <Star key={index} filled={index < (stars[chapterId] ?? 0)} size={26} />
+            ))}
+          </span>
+        )}
         {readToday ? (
           <span className="ws-pill is-read" style={{ cursor: "default" }}>
             ✓ Read today
           </span>
         ) : (
-          <span className="ws-muted">Read to here to mark this chapter · +10 XP</span>
+          <span className="ws-muted">Read to here to mark this stop · +10 XP</span>
+        )}
+        {everRead && (stars[chapterId] ?? 0) < MAX_STARS && (
+          <button type="button" className="ws-pill ws-pill--primary" onClick={() => setChallengeOpen(true)}>
+            Take this stop&apos;s challenge ★
+          </button>
+        )}
+        {comboActive && combo && (
+          <span className="combo-meter" title="Chapters read within 45 minutes of each other">
+            <span className="combo-meter__dots">
+              {Array.from({ length: 5 }, (_, index) => (
+                <span key={index} className={index < combo.count ? "is-on" : undefined} />
+              ))}
+            </span>
+            {comboMultiplier(combo.count) > 1 ? `Combo x${comboMultiplier(combo.count)}` : `${combo.count} in a row`}
+          </span>
         )}
       </div>
+
+      {challengeOpen && <ChallengeSheet chapterId={chapterId} label={label} verses={verses} onClose={() => setChallengeOpen(false)} />}
 
       {ordered.length > 0 && (
         <div className="selection-bar" role="region" aria-label="Selected verses">
@@ -224,6 +293,17 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
               {ordered.length === 1 ? verseLabel(ordered[0]) : `${ordered.length} verses selected`}
             </span>
             <div className="ws-pills">
+              {treasureLive && single === treasureId && (
+                <button
+                  type="button"
+                  className="ws-pill ws-pill--primary"
+                  onClick={(event) => {
+                    if (treasureId) claimTreasure(chapterId, treasureId, originOf(event.currentTarget));
+                  }}
+                >
+                  ✦ Treasure! +{TREASURE_OIL} oil
+                </button>
+              )}
               <button type="button" className="ws-pill ws-pill--primary" onClick={(event) => highlightVerses(ordered, originOf(event.currentTarget))}>
                 {ordered.every((id) => highlights[id]) ? "Remove highlight" : "Highlight"}
               </button>

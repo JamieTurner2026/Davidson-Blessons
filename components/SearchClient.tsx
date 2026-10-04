@@ -6,7 +6,20 @@ import { z } from "zod";
 
 import { Fums } from "@/components/Fums";
 import { TRANSLATIONS } from "@/lib/bibles";
-import { useStudy } from "@/lib/study-store";
+import { originOf } from "@/lib/celebrations";
+import { dayKey, dayNumber } from "@/lib/day";
+import { SEARCH_TREASURE_OIL } from "@/lib/game";
+import { claimSearchHunt, useStudy } from "@/lib/study-store";
+
+/** One word a day to hunt for — find any verse containing it for bonus oil. */
+const HUNT_WORDS = [
+  "shepherd", "light", "bread", "mountain", "river", "lamp", "seed", "vine", "rock", "star",
+  "harvest", "dove", "anchor", "olive", "crown", "fire", "garden", "door", "path", "salt",
+];
+
+function huntWord(day: string): string {
+  return HUNT_WORDS[dayNumber(day) % HUNT_WORDS.length];
+}
 
 const resultSchema = z.object({
   total: z.number(),
@@ -39,7 +52,10 @@ async function fetchPage(query: string, translation: string, offset: number, sig
 }
 
 export function SearchClient(): ReactNode {
-  const { translation: savedTranslation } = useStudy();
+  const { translation: savedTranslation, searchHunts } = useStudy();
+  const today = dayKey();
+  const hunt = huntWord(today);
+  const huntDone = Boolean(searchHunts[today]);
   const [translation, setTranslation] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>(INITIAL);
@@ -117,6 +133,17 @@ export function SearchClient(): ReactNode {
         </div>
       </form>
 
+      <div className="hunt">
+        <span className="ws-muted">Today&apos;s treasure hunt</span>
+        {huntDone ? (
+          <span>Found! Come back tomorrow for a new word.</span>
+        ) : (
+          <span>
+            Open any verse containing <button type="button" className="hunt__word" onClick={() => setQuery(hunt)}>“{hunt}”</button> · +{SEARCH_TREASURE_OIL} oil
+          </span>
+        )}
+      </div>
+
       <p className="ws-muted" aria-live="polite" style={{ margin: 0, textAlign: "center" }}>
         {state.status === "loading" && state.hits.length === 0 && "Searching…"}
         {state.status === "done" && (state.total === 0 ? "No verses found." : `${state.total.toLocaleString()} verses`)}
@@ -127,7 +154,13 @@ export function SearchClient(): ReactNode {
         <ul className="ws-list">
           {state.hits.map((hit) => (
             <li key={hit.id}>
-              <Link className="ws-label" href={`/read/${activeTranslation}/${hit.id.split(".").slice(0, 2).join(".")}#${hit.id}`}>
+              <Link
+                className="ws-label"
+                href={`/read/${activeTranslation}/${hit.id.split(".").slice(0, 2).join(".")}#${hit.id}`}
+                onClick={(event) => {
+                  if (!huntDone && new RegExp(`\\b${hunt}`, "i").test(hit.text)) claimSearchHunt(today, hit.id, originOf(event.currentTarget));
+                }}
+              >
                 {hit.reference}
               </Link>
               <span>{hit.text}</span>

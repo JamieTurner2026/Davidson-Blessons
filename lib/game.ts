@@ -14,7 +14,9 @@ export type Action =
   | "memory-mastered"
   | "quiz-correct"
   | "quiz-tried"
-  | "checkin";
+  | "checkin"
+  | "challenge-star"
+  | "game";
 
 interface XpRule {
   xp: number;
@@ -32,6 +34,8 @@ export const XP_RULES: Record<Action, XpRule> = {
   "quiz-correct": { xp: 15, dailyCap: 15 },
   "quiz-tried": { xp: 5, dailyCap: 5 },
   checkin: { xp: 10, dailyCap: 10 },
+  "challenge-star": { xp: 5, dailyCap: 60 },
+  game: { xp: 2, dailyCap: 60 },
 };
 
 export const DAILY_GOAL = 20;
@@ -174,6 +178,9 @@ export function nextReview(box: number, correct: boolean, today: DayKey): { box:
 
 export interface GameSnapshot {
   chaptersRead: ReadonlySet<string>;
+  starsTotal: number;
+  treasures: number;
+  cosmeticsOwned: number;
   booksComplete: ReadonlySet<string>;
   notes: number;
   mastered: number;
@@ -181,4 +188,95 @@ export interface GameSnapshot {
   longestStreak: number;
   perfectWeeks: number;
   plansComplete: number;
+}
+
+// ── Bonuses (applied AFTER daily caps, so nothing becomes farmable) ──
+
+/** Chapters finished within this gap of each other build a reading combo. */
+export const COMBO_WINDOW_MS = 45 * 60_000;
+
+export interface Combo {
+  count: number;
+  lastAt: number;
+}
+
+export function nextCombo(previous: Combo | null, now: number): Combo {
+  if (previous && now - previous.lastAt <= COMBO_WINDOW_MS) return { count: previous.count + 1, lastAt: now };
+  return { count: 1, lastAt: now };
+}
+
+/** x1 → x2 from the 3rd chapter in a row → x3 from the 5th. Chapter XP only. */
+export function comboMultiplier(count: number): number {
+  if (count >= 5) return 3;
+  if (count >= 3) return 2;
+  return 1;
+}
+
+/** The Lord's Day: all XP doubled on Sundays. */
+export function isLordsDay(key: DayKey): boolean {
+  return weekday(key) === 0;
+}
+
+export function dayMultiplier(key: DayKey): number {
+  return isLordsDay(key) ? 2 : 1;
+}
+
+// ── Oil (the currency) ────────────────────────────────────────────
+
+export const XP_PER_OIL = 5;
+export const OIL_PER_STAR = 3;
+export const TREASURE_OIL = 15;
+export const SEARCH_TREASURE_OIL = 10;
+
+/** Oil earned by moving total XP from `before` to `after` (1 per 5 XP, no rounding drift). */
+export function oilFromXp(before: number, after: number): number {
+  return Math.floor(after / XP_PER_OIL) - Math.floor(before / XP_PER_OIL);
+}
+
+// ── Stars (per chapter stop) ──────────────────────────────────────
+
+export const MAX_STARS = 3;
+
+/** 1 star for finishing, +1 at ≥60% right, +1 at ≥90% right. Works for any number of rounds. */
+export function starsFor(correct: number, total: number): number {
+  if (total <= 0) return 1;
+  const ratio = correct / total;
+  return 1 + (ratio >= 0.6 ? 1 : 0) + (ratio >= 0.9 ? 1 : 0);
+}
+
+// ── Treasure verses ───────────────────────────────────────────────
+
+/** Small stable string hash (FNV-1a) so treasure placement is the same for everyone. */
+export function hashString(text: string): number {
+  let hash = 2166136261;
+  for (const char of text) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash;
+}
+
+/** About 1 in 4 chapters hides a treasure verse. Returns its verse number, or null. */
+export function treasureVerse(chapterId: string, verseNumbers: ReadonlyArray<number>): number | null {
+  if (verseNumbers.length === 0) return null;
+  const hash = hashString(`treasure:${chapterId}`);
+  if (hash % 4 !== 0) return null;
+  return verseNumbers[Math.floor(hash / 4) % verseNumbers.length];
+}
+
+// ── Pilgrim ───────────────────────────────────────────────────────
+
+/** Four life stages across the eight levels. */
+export function pilgrimStage(levelIndex: number): number {
+  return Math.max(0, Math.min(3, Math.floor(levelIndex / 2)));
+}
+
+// ── Checkpoints (every 5 stops on a trail) ────────────────────────
+
+export const CHECKPOINT_EVERY = 5;
+export const CHECKPOINT_OIL_PER_STAR = 5;
+
+/** Chapter numbers a checkpoint after stop `at` reviews, e.g. at=10 → 6..10. */
+export function checkpointRange(at: number): { from: number; to: number } {
+  return { from: Math.max(1, at - CHECKPOINT_EVERY + 1), to: at };
 }

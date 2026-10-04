@@ -26,5 +26,6 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 - `data/` — divisions (home grid), reading plans, verse-of-the-day pool, quiz pool, badges
 - `lib/game.ts` — pure game rules (XP/caps, levels, streak with rest days, Leitner); `lib/study-store.ts` `mutate()` is the only write path that awards XP + queues celebrations
 - `components/motion/` — GSAP primitives (Reveal, SplitHeadline, CountUp, ProgressFill, Lamp) + `Celebrations` (toasts, modal, confetti) mounted in the layout
-- Pages: `/journey` (streak, level, calendar, badges, check-in), `/library` (66 spines), `/memory` (practice games)
+- Pages: `/map` (journey trail + pilgrim), `/lesson/[t]/[chapter]` (passage cards + rounds), `/play` (trivia, match, order, lightning, checkpoints), `/workshop` (oil shop), `/journey`, `/library`, `/memory`
+- `lib/challenge.ts` (verse-generated rounds, segments), `lib/bank.ts` + `data/trivia.ts` (curated questions — run `npx tsx scripts/verify-trivia.ts` after editing), `components/rounds/RoundRenderer.tsx` (one renderer for every round type)
 - `docs/DECISIONS.md` — why things are the way they are

@@ -85,7 +85,7 @@ export function PlansClient(): ReactNode {
                 aria-pressed={isActive}
                 onClick={() => setActivePlan(isActive ? null : plan.id)}
               >
-                {isActive ? "Following" : "Follow this plan"}
+                {isActive ? "On this quest" : "Start this quest"}
               </button>
             </div>
             <p className="ws-muted" style={{ margin: 0 }}>
