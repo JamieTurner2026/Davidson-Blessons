@@ -46,7 +46,9 @@ const sleep = (ms, signal) =>
     signal?.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
   });
 
-export async function getChapter(book, chapter, { forceRefresh = false, signal } = {}) {
+// onPartial(body) is called once, as soon as the bridge returns the Scripture
+// (which it reads locally, instantly) while the study notes are still loading.
+export async function getChapter(book, chapter, { forceRefresh = false, signal, onPartial } = {}) {
   const key = `${book}:${chapter}`;
   if (!forceRefresh) {
     const cached = readCache()[key];
@@ -64,6 +66,7 @@ export async function getChapter(book, chapter, { forceRefresh = false, signal }
   const url = `${BRIDGE_URL}/api/chapter?book=${encodeURIComponent(book)}&chapter=${encodeURIComponent(chapter)}`;
   const deadline = Date.now() + GIVE_UP_MS;
   let networkFailures = 0;
+  let sentPartial = false;
   let res;
 
   while (true) {
@@ -84,6 +87,17 @@ export async function getChapter(book, chapter, { forceRefresh = false, signal }
       continue;
     }
     if (res.status !== 202) break;
+    if (!sentPartial && onPartial) {
+      try {
+        const partial = await res.json();
+        if (partial?.rawText) {
+          onPartial({ ok: true, fromCache: false, ...partial });
+          sentPartial = true;
+        }
+      } catch {
+        // a 202 without a usable body just means keep waiting
+      }
+    }
     if (Date.now() > deadline) {
       return {
         ok: false,
@@ -109,9 +123,12 @@ export async function getChapter(book, chapter, { forceRefresh = false, signal }
     };
   }
 
-  const cache = readCache();
-  cache[key] = body;
-  writeCache(cache);
+  // Don't remember a chapter whose notes failed — let the next visit retry them.
+  if (!body?.notesError) {
+    const cache = readCache();
+    cache[key] = body;
+    writeCache(cache);
+  }
 
   return { ok: true, fromCache: false, ...body };
 }

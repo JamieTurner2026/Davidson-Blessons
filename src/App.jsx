@@ -21,32 +21,30 @@ function saveCompleted(set) {
   }
 }
 
-// Minimal markdown-lite renderer for NotebookLM's answers (bold + headings +
-// paragraphs). Not a full markdown parser — just enough for what the bridge
-// actually returns, to avoid pulling in a markdown dependency for this alone.
+// Minimal markdown-lite renderer for NotebookLM's answers (bold, headings,
+// bullet lists, paragraphs). Works line by line: NotebookLM often puts a
+// heading directly above its bullets with no blank line, and a block-based
+// approach rendered only the heading and dropped the rest. Not a full
+// markdown parser — just enough to avoid a markdown dependency for this.
+const withBold = (s) =>
+  s.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
+    part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
+      <strong key={j}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    )
+  );
+
 function renderLiteMarkdown(text) {
   if (!text) return null;
-  const blocks = text.split(/\n\n+/);
-  return blocks.map((block, i) => {
-    const heading = block.match(/^#{1,3}\s+(.*)/);
-    const withBold = (s) =>
-      s.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
-        part.startsWith("**") && part.endsWith("**") ? (
-          <strong key={j}>{part.slice(2, -2)}</strong>
-        ) : (
-          part
-        )
-      );
-    if (heading) {
-      return (
-        <p key={i} className="font-semibold text-[#C9A34E] mb-2 mt-3 first:mt-0">
-          {withBold(heading[1])}
-        </p>
-      );
-    }
-    return (
-      <p key={i} className="mb-3 last:mb-0">
-        {block.split("\n").map((line, k) => (
+  const out = [];
+  let para = [];
+  let list = [];
+  const flushPara = () => {
+    if (!para.length) return;
+    out.push(
+      <p key={out.length} className="mb-3 last:mb-0">
+        {para.map((line, k) => (
           <React.Fragment key={k}>
             {k > 0 && <br />}
             {withBold(line)}
@@ -54,7 +52,45 @@ function renderLiteMarkdown(text) {
         ))}
       </p>
     );
-  });
+    para = [];
+  };
+  const flushList = () => {
+    if (!list.length) return;
+    out.push(
+      <ul key={out.length} className="list-disc pl-5 mb-3 space-y-1.5">
+        {list.map((item, k) => (
+          <li key={k}>{withBold(item)}</li>
+        ))}
+      </ul>
+    );
+    list = [];
+  };
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const heading = line.match(/^#{1,4}\s+(.*)/);
+    const bullet = line.match(/^[*-]\s+(.*)/);
+    if (!line || /^[-*_]{3,}$/.test(line)) {
+      flushPara();
+      flushList();
+    } else if (heading) {
+      flushPara();
+      flushList();
+      out.push(
+        <p key={out.length} className="font-semibold text-[#C9A34E] mb-2 mt-4 first:mt-0">
+          {withBold(heading[1])}
+        </p>
+      );
+    } else if (bullet) {
+      flushPara();
+      list.push(bullet[1]);
+    } else {
+      flushList();
+      para.push(line);
+    }
+  }
+  flushPara();
+  flushList();
+  return out;
 }
 
 export default function App() {
@@ -73,12 +109,17 @@ export default function App() {
     // bridge keeps fetching in the background and caches the result anyway.
     const controller = new AbortController();
     setChapterState({ status: "loading" });
-    getChapter(book.name, chapter, { signal: controller.signal }).then((result) => {
+    const onPartial = (partial) => {
+      if (!controller.signal.aborted) {
+        setChapterState({ status: "loaded", data: partial, notesPending: true });
+      }
+    };
+    getChapter(book.name, chapter, { signal: controller.signal, onPartial }).then((result) => {
       if (controller.signal.aborted) return;
       if (!result.ok) {
         setChapterState({ status: "error", message: result.message });
       } else {
-        setChapterState({ status: "loaded", data: result });
+        setChapterState({ status: "loaded", data: result, notesPending: false });
       }
     });
     return () => controller.abort();
@@ -210,11 +251,8 @@ export default function App() {
             {chapterState.status === "loading" && (
               <div className="py-10 text-center">
                 <div className="flex items-center gap-2 text-[#EDE6D6]/60 text-sm justify-center">
-                  <Loader2 className="spin" size={18} /> Asking your notebook&hellip;
+                  <Loader2 className="spin" size={18} /> Opening chapter&hellip;
                 </div>
-                <p className="text-[11px] text-[#EDE6D6]/35 mt-2">
-                  A chapter's first visit takes 1–2 minutes. After that it loads instantly.
-                </p>
               </div>
             )}
 
@@ -262,14 +300,31 @@ export default function App() {
                   <h3 className="text-sm font-semibold text-[#C9A34E] mb-2 flex items-center gap-1.5">
                     <Sparkles size={14} /> Learning Notes
                   </h3>
-                  {chapterState.data.explanationAvailable === false && (
-                    <p className="text-xs italic text-[#EDE6D6]/50 mb-2">
-                      Limited source coverage for this chapter — here's what's available:
+                  {chapterState.notesPending ? (
+                    <div className="py-4">
+                      <div className="flex items-center gap-2 text-[#EDE6D6]/60 text-sm">
+                        <Loader2 className="spin" size={16} /> Writing study notes&hellip;
+                      </div>
+                      <p className="text-[11px] text-[#EDE6D6]/35 mt-1">
+                        About 40 seconds the first time; instant after that. Start reading meanwhile.
+                      </p>
+                    </div>
+                  ) : chapterState.data.notesError ? (
+                    <p className="text-sm italic text-[#EDE6D6]/55">
+                      Study notes couldn't load: {chapterState.data.notesError}
                     </p>
+                  ) : (
+                    <>
+                      {chapterState.data.explanationAvailable === false && (
+                        <p className="text-xs italic text-[#EDE6D6]/50 mb-2">
+                          Limited source coverage for this chapter — here's what's available:
+                        </p>
+                      )}
+                      <div className="text-[15px] leading-relaxed text-[#EDE6D6]/85">
+                        {renderLiteMarkdown(chapterState.data.explanation)}
+                      </div>
+                    </>
                   )}
-                  <div className="text-[15px] leading-relaxed text-[#EDE6D6]/85">
-                    {renderLiteMarkdown(chapterState.data.explanation)}
-                  </div>
                 </div>
 
                 {!completed.has(key) ? (
