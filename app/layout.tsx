@@ -3,6 +3,7 @@ import { Inter_Tight } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { Footer } from "@/components/Footer";
+import { Celebrations } from "@/components/motion/Celebrations";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
         <div className="ws-container">
           <Footer />
         </div>
+        <Celebrations />
       </body>
     </html>
   );

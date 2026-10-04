@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { originOf } from "@/lib/celebrations";
 import { verseLabel } from "@/lib/canon";
+import { dayKey } from "@/lib/day";
 import type { Block } from "@/lib/schemas";
-import { highlightVerses, saveNote, setLastRead, useStudy } from "@/lib/study-store";
+import { highlightVerses, markChapterRead, memorize, saveNote, setLastRead, useStudy } from "@/lib/study-store";
+
+/** A chapter only counts as read after this long on the page — skimming doesn't. */
+const MIN_READ_MS = 20_000;
 
 interface Props {
   blocks: Block[];
@@ -51,7 +56,8 @@ function NoteEditor({ verseId, initial }: { verseId: string; initial: string }):
       style={{ gap: 10, padding: 0 }}
       onSubmit={(event) => {
         event.preventDefault();
-        saveNote(verseId, draft);
+        const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+        saveNote(verseId, draft, originOf(submitter));
         setSaved(true);
       }}
     >
@@ -76,7 +82,9 @@ function NoteEditor({ verseId, initial }: { verseId: string; initial: string }):
 }
 
 export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
-  const { highlights, notes } = useStudy();
+  const { highlights, notes, memory, days } = useStudy();
+  const readToday = days[dayKey()]?.chapters.includes(chapterId) ?? false;
+  const endMarker = useRef<HTMLDivElement>(null);
   const texts = useMemo(() => verseTextMap(blocks), [blocks]);
   // Arriving from search with #JHN.3.16 pre-selects that verse until the reader taps something.
   const hash = useHash();
@@ -90,6 +98,31 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
     setLastRead(translation, chapterId);
   }, [translation, chapterId]);
 
+  // Mark the chapter read once the end is on screen AND enough time has passed.
+  useEffect(() => {
+    const marker = endMarker.current;
+    if (!marker) return;
+    const openedAt = Date.now();
+    let visible = false;
+    let timer: number | undefined;
+    const tryMark = (): void => {
+      if (!visible) return;
+      const remaining = MIN_READ_MS - (Date.now() - openedAt);
+      if (remaining <= 0) markChapterRead(chapterId);
+      else timer = window.setTimeout(tryMark, remaining);
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      window.clearTimeout(timer);
+      tryMark();
+    });
+    observer.observe(marker);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+    };
+  }, [chapterId]);
+
   const toggle = (verseId: string): void => {
     setCopied(false);
     setSelected((current) => {
@@ -102,12 +135,24 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
 
   const ordered = sortVerseIds(selected);
   const single = ordered.length === 1 ? ordered[0] : null;
+  const rangeLabel = ordered.length > 1 ? `${verseLabel(ordered[0])}–${ordered.at(-1)?.split(".")[2]}` : ordered[0] ? verseLabel(ordered[0]) : "";
+  const memoryId = ordered.join("+");
+  const alreadyMemorizing = Boolean(memory[memoryId]);
+
+  const addToMemory = (): void => {
+    if (ordered.length === 0 || ordered.length > 3) return;
+    memorize({
+      reference: rangeLabel,
+      text: ordered.map((id) => texts.get(id)?.trim() ?? "").join(" "),
+      translation,
+      verseIds: ordered,
+    });
+  };
 
   const copy = async (): Promise<void> => {
     const body = ordered.map((id) => `${id.split(".")[2]} ${texts.get(id)?.trim() ?? ""}`).join(" ");
-    const reference = ordered.length > 1 ? `${verseLabel(ordered[0])}–${ordered.at(-1)?.split(".")[2]}` : verseLabel(ordered[0]);
     try {
-      await navigator.clipboard.writeText(`${body}\n— ${reference} (${translation.toUpperCase()})`);
+      await navigator.clipboard.writeText(`${body}\n— ${rangeLabel} (${translation.toUpperCase()})`);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -162,6 +207,16 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
         })}
       </div>
 
+      <div ref={endMarker} className="chapter-end" aria-live="polite">
+        {readToday ? (
+          <span className="ws-pill is-read" style={{ cursor: "default" }}>
+            ✓ Read today
+          </span>
+        ) : (
+          <span className="ws-muted">Read to here to mark this chapter · +10 XP</span>
+        )}
+      </div>
+
       {ordered.length > 0 && (
         <div className="selection-bar" role="region" aria-label="Selected verses">
           <div className="ws-row">
@@ -169,8 +224,17 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
               {ordered.length === 1 ? verseLabel(ordered[0]) : `${ordered.length} verses selected`}
             </span>
             <div className="ws-pills">
-              <button type="button" className="ws-pill ws-pill--primary" onClick={() => highlightVerses(ordered)}>
+              <button type="button" className="ws-pill ws-pill--primary" onClick={(event) => highlightVerses(ordered, originOf(event.currentTarget))}>
                 {ordered.every((id) => highlights[id]) ? "Remove highlight" : "Highlight"}
+              </button>
+              <button
+                type="button"
+                className="ws-pill"
+                disabled={ordered.length > 3 || alreadyMemorizing}
+                title={ordered.length > 3 ? "Pick up to 3 verses to memorize" : undefined}
+                onClick={addToMemory}
+              >
+                {alreadyMemorizing ? "Memorizing ✓" : "Memorize"}
               </button>
               <button type="button" className="ws-pill" onClick={copy}>
                 {copied ? "Copied" : "Copy"}

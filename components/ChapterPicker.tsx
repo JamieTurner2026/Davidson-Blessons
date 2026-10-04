@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
 import { BOOKS, getBook, type Book } from "@/lib/canon";
+import { useStudy } from "@/lib/study-store";
 
 interface Props {
   translation: string;
@@ -31,6 +32,7 @@ function BookList({ books, chosen, onChoose }: { books: ReadonlyArray<Book>; cho
 }
 
 export function ChapterPicker({ translation, bookId, chapter, label }: Props): ReactNode {
+  const { chaptersRead } = useStudy();
   const [open, setOpen] = useState(false);
   const [chosenBook, setChosenBook] = useState(bookId);
   const book = getBook(chosenBook);
@@ -55,8 +57,9 @@ export function ChapterPicker({ translation, bookId, chapter, label }: Props): R
                   <Link
                     key={number}
                     href={`/read/${translation}/${book.id}.${number}`}
-                    className="ws-pill ws-pill--sm"
+                    className={chaptersRead[`${book.id}.${number}`] ? "ws-pill ws-pill--sm is-read" : "ws-pill ws-pill--sm"}
                     aria-current={book.id === bookId && number === chapter ? "page" : undefined}
+                    title={chaptersRead[`${book.id}.${number}`] ? "Read" : undefined}
                     onClick={() => setOpen(false)}
                   >
                     {number}

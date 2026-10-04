@@ -2,7 +2,7 @@
 const VOTD_TIME_ZONE = "America/New_York";
 
 /** Days since 1970-01-01 for the calendar date `date` falls on in VOTD_TIME_ZONE. */
-function localDayNumber(date: Date): number {
+export function localDayNumber(date: Date): number {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: VOTD_TIME_ZONE,
     year: "numeric",
@@ -22,4 +22,9 @@ function localDayNumber(date: Date): number {
  */
 export function pickVerseOfDay(date: Date, verseIds: ReadonlyArray<string>): string {
   return verseIds[localDayNumber(date) % verseIds.length];
+}
+
+/** "YYYY-MM-DD" for the shared (America/New_York) calendar day — used to key the daily quiz. */
+export function sharedDayKey(date: Date): string {
+  return new Date(localDayNumber(date) * 86_400_000).toISOString().slice(0, 10);
 }

@@ -3,17 +3,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ProgressFill } from "@/components/motion/ProgressFill";
 import { PLANS, type ReadingPlan } from "@/data/plans";
 import { chapterLabel, parseChapterId } from "@/lib/canon";
+import { originOf } from "@/lib/celebrations";
 import { setActivePlan, togglePlanDay, useStudy } from "@/lib/study-store";
 
 export function ProgressBar({ done, total }: { done: number; total: number }): ReactNode {
-  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
-  return (
-    <div className="progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-      <span style={{ width: `${percent}%` }} />
-    </div>
-  );
+  return <ProgressFill value={total === 0 ? 0 : done / total} label={`${done} of ${total} days`} />;
 }
 
 /** Joins "MAT.1, MAT.2, MAT.3" into "Matthew 1–3". */
@@ -46,7 +43,7 @@ function PlanDetail({ plan, translation }: { plan: ReadingPlan; translation: str
               type="checkbox"
               className="check"
               checked={done.has(day.day)}
-              onChange={() => togglePlanDay(plan.id, day.day)}
+              onChange={(event) => togglePlanDay(plan.id, day.day, originOf(event.currentTarget))}
               aria-label={`Mark day ${day.day} read`}
             />
             <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>

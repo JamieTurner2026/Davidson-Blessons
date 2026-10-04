@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { useStudy } from "@/lib/study-store";
+import { Lamp } from "@/components/motion/Lamp";
+import { useGame } from "@/lib/study-store";
 
 function NavLink({ href, match, children }: { href: string; match: string; children: ReactNode }): ReactNode {
   const pathname = usePathname();
@@ -17,7 +18,8 @@ function NavLink({ href, match, children }: { href: string; match: string; child
 }
 
 export function Nav(): ReactNode {
-  const { lastRead, translation } = useStudy();
+  const { state, streak, goalProgress, dueCount } = useGame();
+  const { lastRead, translation } = state;
   const readHref = lastRead ? `/read/${lastRead.translation}/${lastRead.chapterId}` : `/read/${translation}/JHN.1`;
 
   return (
@@ -29,17 +31,31 @@ export function Nav(): ReactNode {
         <NavLink href="/search" match="/search">
           Search
         </NavLink>
+        <NavLink href="/library" match="/library">
+          Library
+        </NavLink>
       </div>
       <Link href="/" className="ws-nav__wordmark">
         Selah
       </Link>
-      <div className="ws-nav__group ws-nav__group--end">
+      <div className="ws-nav__group ws-nav__group--end" style={{ alignItems: "center" }}>
+        <NavLink href="/memory" match="/memory">
+          Memory{dueCount > 0 ? ` · ${dueCount}` : ""}
+        </NavLink>
         <NavLink href="/plans" match="/plans">
           Plans
         </NavLink>
         <NavLink href="/notes" match="/notes">
           Notes
         </NavLink>
+        <Link
+          href="/journey"
+          className="nav-streak"
+          aria-label={`Your journey: ${streak.current}-day streak`}
+        >
+          <Lamp lit={goalProgress >= 1} glow={Math.min(1, streak.current / 30)} size={26} />
+          {streak.current}
+        </Link>
       </div>
     </nav>
   );
