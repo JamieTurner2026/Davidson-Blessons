@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Flame, ChevronLeft, Check, BookOpen, Sparkles, Loader2 } from "lucide-react";
 import { BOOKS } from "../lib/usfmBooks.js";
-import { getChapter } from "./services/notebookLmService.js";
+import { getChapter, EDITION } from "./services/notebookLmService.js";
 
 const COMPLETED_KEY = "davison-blesson-completed-v1";
 
@@ -159,8 +159,8 @@ export default function App() {
         </div>
         <h1 className="serif-display text-4xl leading-tight mb-2">Davison Blesson</h1>
         <p className="text-[#EDE6D6]/70 text-sm mb-1">
-          All 66 books, browsed chapter by chapter. Scripture and study notes are
-          retrieved live from your own NotebookLM notebook.
+          All 66 books, chapter by chapter, each with plain-language study notes:
+          what it means, key takeaways, and a question to reflect on.
         </p>
         <p className="text-[#EDE6D6]/40 text-xs mb-8">
           Not affiliated with the New International Version or Biblica.
@@ -264,37 +264,42 @@ export default function App() {
 
             {chapterState.status === "loaded" && (
               <>
-                <div className="rounded-2xl bg-[#F3E9D2] text-[#2B1D14] p-6 mb-6 shadow-lg">
-                  <div className="flex items-center gap-2 mb-3 text-[#7A3B3B]">
-                    <BookOpen size={15} />
-                    <span className="text-xs font-semibold tracking-wide">
-                      {chapterState.data.mode === "excerpt" ? "NIV Excerpt" : "NIV Scripture"}{" "}
-                      {chapterState.data.fromCache ? "(cached)" : ""}
-                    </span>
-                  </div>
-                  {chapterState.data.rawAvailable === false && (
-                    <p className="text-xs italic text-[#7A3B3B] mb-2">
-                      Not yet in your notebook — showing what NotebookLM could find:
-                    </p>
-                  )}
-                  {chapterState.data.mode === "excerpt" && chapterState.data.rawAvailable !== false ? (
-                    <>
-                      <p className="serif-display text-[19px] leading-snug italic">
-                        &ldquo;{chapterState.data.rawText}&rdquo;
-                      </p>
-                      <p className="text-xs mt-2 text-[#7A3B3B]">
-                        &mdash; {book.name} {chapter}:1 (NIV)
-                      </p>
-                      <p className="text-[11px] mt-3 text-[#2B1D14]/60">
-                        A short excerpt only. Read the full chapter in your own Bible.
-                      </p>
-                    </>
-                  ) : (
-                    <div className="serif-display text-[17px] leading-snug">
-                      {renderLiteMarkdown(chapterState.data.rawText)}
+                {EDITION === "public" ? (
+                  // The public site hosts no Scripture; it links to the official NIV.
+                  <a
+                    href={`https://www.bible.com/bible/111/${book.usfm}.${chapter}.NIV`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-2xl bg-[#F3E9D2] text-[#2B1D14] p-6 mb-6 shadow-lg hover:brightness-105 transition"
+                  >
+                    <div className="flex items-center gap-2 mb-2 text-[#7A3B3B]">
+                      <BookOpen size={15} />
+                      <span className="text-xs font-semibold tracking-wide">NIV Scripture</span>
                     </div>
-                  )}
-                </div>
+                    <p className="serif-display text-[20px] leading-snug">
+                      Read {book.name} {chapter} in the NIV &rarr;
+                    </p>
+                    <p className="text-[11px] mt-2 text-[#2B1D14]/60">
+                      Opens the official, free NIV text on Bible.com. Then come back for the study notes below.
+                    </p>
+                  </a>
+                ) : (
+                  <div className="rounded-2xl bg-[#F3E9D2] text-[#2B1D14] p-6 mb-6 shadow-lg">
+                    <div className="flex items-center gap-2 mb-3 text-[#7A3B3B]">
+                      <BookOpen size={15} />
+                      <span className="text-xs font-semibold tracking-wide">NIV Scripture</span>
+                    </div>
+                    {chapterState.data.rawAvailable ? (
+                      <div className="serif-display text-[17px] leading-snug">
+                        {renderLiteMarkdown(chapterState.data.rawText)}
+                      </div>
+                    ) : (
+                      <p className="text-sm italic text-[#7A3B3B]">
+                        This chapter's text isn't available right now.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="mb-8">
                   <h3 className="text-sm font-semibold text-[#C9A34E] mb-2 flex items-center gap-1.5">
@@ -309,6 +314,10 @@ export default function App() {
                         About 40 seconds the first time; instant after that. Start reading meanwhile.
                       </p>
                     </div>
+                  ) : chapterState.data.notesComing ? (
+                    <p className="text-sm italic text-[#EDE6D6]/55">
+                      Study notes for this chapter are being written and will appear here soon.
+                    </p>
                   ) : chapterState.data.notesError ? (
                     <p className="text-sm italic text-[#EDE6D6]/55">
                       Study notes couldn't load: {chapterState.data.notesError}

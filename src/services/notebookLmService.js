@@ -46,23 +46,62 @@ const sleep = (ms, signal) =>
     signal?.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
   });
 
+// "public" edition: study notes + a link to the official NIV (no Scripture hosted).
+// "private" edition: study notes + full NIV text (deployment is behind Vercel sign-in).
+export const EDITION = import.meta.env.VITE_EDITION === "public" ? "public" : "private";
+
+// Pre-written chapters ship with the site as static files under /data, so
+// they load instantly with no dependency on the owner's PC.
+async function fetchStatic(path, signal) {
+  try {
+    const res = await fetch(path, { signal });
+    if (!res.ok || !(res.headers.get("content-type") || "").includes("json")) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+const slugOf = (book) => book.toLowerCase().replace(/ /g, "-");
+
 // onPartial(body) is called once, as soon as the bridge returns the Scripture
 // (which it reads locally, instantly) while the study notes are still loading.
 export async function getChapter(book, chapter, { forceRefresh = false, signal, onPartial } = {}) {
+  const slug = slugOf(book);
+  const [notes, scripture] = await Promise.all([
+    fetchStatic(`/data/notes/${slug}/${chapter}.json`, signal),
+    EDITION === "private" ? fetchStatic(`/data/scripture/${slug}/${chapter}.json`, signal) : null,
+  ]);
+  const staticBase = {
+    book, chapter, mode: EDITION === "private" ? "full" : "link",
+    rawText: scripture?.text || "", rawAvailable: Boolean(scripture?.text),
+  };
+  if (notes && (EDITION === "public" || scripture)) {
+    return { ok: true, fromStatic: true, ...staticBase, ...notes };
+  }
+
   const key = `${book}:${chapter}`;
   if (!forceRefresh) {
     const cached = readCache()[key];
     if (cached) return { ok: true, fromCache: true, ...cached };
   }
 
-  if (!BRIDGE_URL) {
-    return {
-      ok: false,
-      reason: "NOT_CONNECTED",
-      message: "Live chapters aren't connected on this site yet — check back soon.",
-    };
-  }
+  // Notes for this chapter haven't been pre-written yet: show what the site
+  // has on its own (Scripture or the NIV link) and say notes are coming.
+  const comingSoon = { ok: true, fromStatic: true, ...staticBase, explanation: "", notesComing: true };
+  const canStandAlone = EDITION === "public" || Boolean(scripture);
+  if (!BRIDGE_URL) return comingSoon;
 
+  // Show what the site already has right away, then ask the owner's PC to
+  // write the notes live (works only while it's on; if it's unreachable this
+  // takes a few retries, which shouldn't hold up the page).
+  if (canStandAlone && onPartial) onPartial({ ...comingSoon, notesComing: false });
+  const live = await fromBridge(book, chapter, key, { signal, onPartial });
+  if (!live.ok && live.reason !== "CANCELLED" && canStandAlone) return comingSoon;
+  return live;
+}
+
+async function fromBridge(book, chapter, key, { signal, onPartial }) {
   const url = `${BRIDGE_URL}/api/chapter?book=${encodeURIComponent(book)}&chapter=${encodeURIComponent(chapter)}`;
   const deadline = Date.now() + GIVE_UP_MS;
   let networkFailures = 0;

@@ -5,3 +5,7 @@ dist
 .env*.local
 
 .vercel
+
+# Generated per deploy by notebooklm-mcp/publish_static.py. Contains the
+# owner's personal NIV text for the private edition — never commit it.
+public/data/
