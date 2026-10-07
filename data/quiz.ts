@@ -1,7 +1,7 @@
 // "Which book is this from?" — recognisable verses from across the canon.
 export const QUIZ_POOL: ReadonlyArray<string> = [
   "GEN.1.1", "EXO.20.3", "LEV.19.18", "NUM.6.24", "DEU.6.5", "JOS.24.15", "JDG.21.25", "RUT.1.16",
-  "1SA.16.7", "2SA.22.2", "1KI.19.12", "2KI.6.16", "1CH.16.34", "2CH.7.14", "EZR.7.10", "NEH.8.10",
+  "1SA.16.7", "2SA.22.2", "1KI.19.12", "2KI.6.16", "1CH.16.34", "2CH.7.14", "EZR.7.10", "NEH.1.4",
   "EST.4.14", "JOB.19.25", "PSA.23.1", "PSA.46.10", "PSA.119.105", "PRO.3.5", "PRO.22.6", "ECC.3.1",
   "SNG.8.7", "ISA.40.31", "ISA.53.5", "JER.29.11", "LAM.3.23", "EZK.36.26", "DAN.3.17", "HOS.6.6",
   "JOL.2.28", "AMO.5.24", "JON.2.9", "MIC.6.8", "HAB.2.4", "ZEP.3.17", "ZEC.4.6", "MAL.3.10",
