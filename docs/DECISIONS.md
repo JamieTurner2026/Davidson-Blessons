@@ -45,3 +45,10 @@
   - Round SVG/position math (`Math.sin`) to 1 decimal so server and browser render identical HTML (hydration).
   - API.Bible JSON splits verses into runs that may lack a joining space — `versesFromBlocks` inserts one.
   - Hidden/background browser tabs pause `requestAnimationFrame`, freezing GSAP tweens — test animations in the foreground.
+
+## 2026-10-06 — GitHub, sales page, deploy
+
+- **GitHub:** private repo https://github.com/marleevison/selah (`main`), connected to Vercel — pushes to `main` auto-deploy.
+- **Vercel:** project `marleevisons-projects/selah`, canonical URL **https://selah-rho-sable.vercel.app** (use this, not the per-deployment slug). `API_BIBLE_KEY` set as an encrypted Production env var; `.vercelignore` keeps `.env*` out of uploads.
+- **Sales page** at `/welcome` (Woset style: split headline, the four pilgrim stages, feature cards, badge band, promises, CTA). No pricing claims — Selah is presented as free/no sign-up because nothing else has been decided. Linked from the footer ("About Selah").
+- **Quiz fix:** removed NEH.8.10 from the daily-quiz pool (its text names Nehemiah, giving away the answer); replaced with NEH.1.4.

@@ -5,6 +5,9 @@
 Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Woset** design system
 (`~/.claude/skills/woset`). Scripture comes live from **API.Bible**; illustrations were generated with **Magnific**.
 
+## Links
+- Live: https://selah-rho-sable.vercel.app (sales page: `/welcome`) · Repo: https://github.com/marleevison/selah (private; pushes to `main` auto-deploy)
+
 ## Commands
 - `npm run dev` — dev server (preview config `selah` in `~/Documents/Claude/.claude/launch.json`, port 3410)
 - `npx tsc --noEmit` · `npm run lint` · `npm run build`
