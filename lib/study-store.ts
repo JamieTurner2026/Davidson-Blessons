@@ -34,14 +34,16 @@ import {
 } from "@/lib/game";
 
 // Everything personal lives in this browser only. One versioned key, Zod-checked on
-// read so a corrupted or hand-edited value falls back to empty instead of crashing.
-// v2/v3 fields all have defaults, so older data loads unchanged.
+// read. A value that fails the check is backed up untouched, then salvaged field by
+// field, so one bad entry never wipes the rest. v2/v3 fields all have defaults.
 
 const STORAGE_KEY = "selah:v1";
 
+const MEMORY_TEXT_MAX = 2000;
+
 const memorySchema = z.object({
   reference: z.string(),
-  text: z.string().max(2000),
+  text: z.string().max(MEMORY_TEXT_MAX),
   translation: z.string(),
   verseIds: z.array(z.string()).min(1).max(3),
   box: z.number().int().min(1).max(MASTERED_BOX),
@@ -72,8 +74,12 @@ const studySchema = z.object({
   treasures: z.record(z.string(), z.string()).default({}),
   searchHunts: z.record(z.string(), z.string()).default({}),
   owned: z.array(z.string()).default([]),
+  // Merge over the defaults so adding a slot later never invalidates saved data.
   equipped: z
-    .object({ lamp: z.string(), confetti: z.string(), paper: z.string(), companion: z.string() })
+    .preprocess(
+      (value) => (typeof value === "object" && value !== null ? { ...DEFAULT_EQUIPPED, ...value } : value),
+      z.object({ lamp: z.string(), confetti: z.string(), paper: z.string(), companion: z.string() }),
+    )
     .default(DEFAULT_EQUIPPED),
   sound: z.boolean().default(true),
   // ── v3.1: games ──
@@ -91,14 +97,56 @@ const EMPTY: StudyState = studySchema.parse({});
 let cache: StudyState | null = null;
 const listeners = new Set<() => void>();
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Keeps every field (and every record entry) that still parses, so one bad value can
+ * never wipe the rest. Each record entry is checked by running the field's own schema
+ * on a one-entry object — no reaching into Zod internals.
+ */
+export function salvageStudy(raw: unknown): StudyState {
+  if (!isPlainObject(raw)) return EMPTY;
+  const shape = studySchema.shape;
+  const kept: Record<string, unknown> = {};
+  for (const key of Object.keys(shape) as Array<keyof typeof shape>) {
+    const fieldSchema = shape[key];
+    const value = raw[key];
+    if (fieldSchema.safeParse(value).success) {
+      kept[key] = value;
+    } else if (isPlainObject(value) && isPlainObject(EMPTY[key])) {
+      kept[key] = Object.fromEntries(
+        Object.entries(value).filter(([entryKey, entry]) => fieldSchema.safeParse({ [entryKey]: entry }).success),
+      );
+    }
+  }
+  const result = studySchema.safeParse(kept);
+  return result.success ? result.data : EMPTY;
+}
+
 function readStorage(): StudyState {
+  let rawValue: string | null = null;
   try {
-    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+    rawValue = window.localStorage.getItem(STORAGE_KEY);
     if (!rawValue) return EMPTY;
-    const result = studySchema.safeParse(JSON.parse(rawValue));
-    return result.success ? result.data : EMPTY;
+    const parsed: unknown = JSON.parse(rawValue);
+    const result = studySchema.safeParse(parsed);
+    if (result.success) return result.data;
+    backupRaw(rawValue);
+    return salvageStudy(parsed);
   } catch {
+    if (rawValue) backupRaw(rawValue);
     return EMPTY;
+  }
+}
+
+/** Keeps the untouched original before any repaired state can be written over it. */
+function backupRaw(rawValue: string): void {
+  try {
+    window.localStorage.setItem(`${STORAGE_KEY}:backup:${dayKey()}`, rawValue);
+  } catch {
+    // Quota full: nothing more we can do without risking the main key.
   }
 }
 
@@ -467,10 +515,12 @@ export function checkIn(origin: Origin | null = null): void {
 
 export function memorize(card: Omit<MemoryCard, "box" | "due" | "addedAt">): string {
   const id = card.verseIds.join("+");
+  // Stay inside the schema's limits so a long passage can't fail validation on the next load.
+  const safeCard = { ...card, text: card.text.slice(0, MEMORY_TEXT_MAX), verseIds: card.verseIds.slice(0, 3) };
   mutate((state, today) =>
     state.memory[id]
       ? state
-      : { ...state, memory: { ...state.memory, [id]: { ...card, box: 1, due: today, addedAt: new Date().toISOString() } } },
+      : { ...state, memory: { ...state.memory, [id]: { ...safeCard, box: 1, due: today, addedAt: new Date().toISOString() } } },
   );
   return id;
 }
