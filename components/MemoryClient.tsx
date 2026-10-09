@@ -20,7 +20,8 @@ function Boxes({ box }: { box: number }): ReactNode {
 export function MemoryClient(): ReactNode {
   const { state, today } = useGame();
   const cards = Object.entries(state.memory);
-  const due = cards.filter(([, card]) => card.box < MASTERED_BOX && card.due <= today);
+  // Mastered verses come back every few weeks for a light refresh.
+  const due = cards.filter(([, card]) => card.due <= today);
   // The id being practised stays fixed until "Continue", even though the store updates under it.
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [done, setDone] = useState<string[]>([]);

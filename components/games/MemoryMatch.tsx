@@ -63,7 +63,9 @@ export function MemoryMatch({ deck, onFinish }: { deck: MatchCard[]; onFinish: (
       if (nowMatched.length === deck.length) {
         const pairs = deck.length / 2;
         const score = Math.max(10, 100 - (totalMoves - pairs) * 8);
-        window.setTimeout(() => onFinish({ correct: pairs, score, summary: `All ${pairs} pairs in ${totalMoves} flips` }), 700);
+        // XP follows skill: a clean board earns all pairs, lots of misses earns 1.
+        const earned = Math.max(1, Math.round((pairs * score) / 100));
+        window.setTimeout(() => onFinish({ correct: earned, score, summary: `All ${pairs} pairs in ${totalMoves} flips` }), 700);
       }
     } else {
       play("thud");

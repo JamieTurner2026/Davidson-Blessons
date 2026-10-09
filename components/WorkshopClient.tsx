@@ -66,7 +66,7 @@ export function WorkshopClient(): ReactNode {
   return (
     <Reveal className="ws-stack" style={{ paddingBlock: 0, gap: 48 }}>
       <p className="ws-muted" style={{ margin: 0, textAlign: "center" }}>
-        You have <strong style={{ color: "var(--ws-fg)" }}>{oil} oil</strong>. Earn it by reading (1 per 5 XP), stars (3 each) and treasure verses.
+        You have <strong style={{ color: "var(--ws-fg)" }}>{oil} oil</strong>. Earn it by reading (1 per 5 XP), stars, checkpoints, treasure verses and the daily search hunt.
       </p>
       {SLOTS.map((slot) => (
         <section key={slot} style={{ display: "flex", flexDirection: "column", gap: 18 }}>

@@ -37,7 +37,7 @@ export function QuizCard({ day, verseId, text, answer, options, translation }: P
     <div ref={root} className="tile" style={{ gap: 14 }}>
       <div className="ws-row">
         <span className="ws-muted">Daily quiz · Which book?</span>
-        {result && <span className="ws-label">{result.correct ? "+15 XP" : "+5 XP"}</span>}
+        {result && <span className="ws-label">{(result.xp ?? (result.correct ? 15 : 5)) > 0 ? `+${result.xp ?? (result.correct ? 15 : 5)} XP` : "Answered"}</span>}
       </div>
       <p className="quiz__verse">“{text}”</p>
       <div className="quiz__choices" role="group" aria-label="Choose the book">

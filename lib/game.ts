@@ -25,7 +25,7 @@ interface XpRule {
 }
 
 export const XP_RULES: Record<Action, XpRule> = {
-  chapter: { xp: 10 },
+  chapter: { xp: 10, dailyCap: 50 },
   highlight: { xp: 2, dailyCap: 10 },
   note: { xp: 5, dailyCap: 25 },
   "plan-day": { xp: 15, dailyCap: 45 },
@@ -38,7 +38,8 @@ export const XP_RULES: Record<Action, XpRule> = {
   game: { xp: 2, dailyCap: 60 },
 };
 
-export const DAILY_GOAL = 20;
+/** One chapter (or a paper-Bible check-in) lights the lamp. */
+export const DAILY_GOAL = 10;
 
 export interface DayLog {
   xp: number;
@@ -106,8 +107,16 @@ export interface StreakInfo {
   thisWeek: boolean[];
 }
 
+/** Study actions that light a day. Games and the quiz are fun, but don't keep a streak alone. */
+const LIGHTING_ACTIONS: ReadonlyArray<Action> = ["chapter", "highlight", "note", "plan-day", "memory-practice", "memory-mastered", "checkin"];
+/** Days before this keep the original rule (any XP), so nobody's existing streak breaks. */
+const STRICT_LIT_FROM: DayKey = "2026-10-10";
+
 export function isLit(days: Record<DayKey, DayLog>, key: DayKey): boolean {
-  return (days[key]?.xp ?? 0) > 0;
+  const log = days[key];
+  if (!log) return false;
+  if (key < STRICT_LIT_FROM) return log.xp > 0;
+  return LIGHTING_ACTIONS.some((action) => (log.by[action] ?? 0) > 0);
 }
 
 export function streakInfo(days: Record<DayKey, DayLog>, today: DayKey): StreakInfo {
@@ -167,8 +176,12 @@ export function modeForBox(box: number): PracticeMode {
   return "first-letter";
 }
 
+/** Mastered verses come back for a light refresh so they stay mastered. */
+export const MASTERED_REFRESH_DAYS = 30;
+
 export function nextReview(box: number, correct: boolean, today: DayKey): { box: number; due: DayKey } {
   if (!correct) return { box: Math.max(1, box - 1), due: today };
+  if (box >= MASTERED_BOX) return { box: MASTERED_BOX, due: addDays(today, MASTERED_REFRESH_DAYS) };
   const nextBox = Math.min(MASTERED_BOX, box + 1);
   const wait = nextBox >= MASTERED_BOX ? 16 : BOX_INTERVALS[nextBox];
   return { box: nextBox, due: addDays(today, wait) };

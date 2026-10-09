@@ -80,7 +80,7 @@ export function JourneyClient(): ReactNode {
             <CountUp value={todayXp} /> / {DAILY_GOAL} XP
           </span>
           <ProgressFill value={todayXp / DAILY_GOAL} label="Daily goal" tall />
-          <span className="ws-muted">{todayXp >= DAILY_GOAL ? "Lamp lit for today." : "Read a chapter or two to light today's lamp."}</span>
+          <span className="ws-muted">{todayXp >= DAILY_GOAL ? "Lamp lit for today." : "Read a chapter to light today's lamp."}</span>
         </div>
         <div className="tile">
           <span className="ws-muted">Read a paper Bible?</span>

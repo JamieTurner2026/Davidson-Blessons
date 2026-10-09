@@ -65,7 +65,7 @@ const studySchema = z.object({
     .default({}),
   chaptersRead: z.record(z.string(), z.string()).default({}),
   memory: z.record(z.string(), memorySchema).default({}),
-  quiz: z.record(z.string(), z.object({ correct: z.boolean(), answer: z.string() })).default({}),
+  quiz: z.record(z.string(), z.object({ correct: z.boolean(), answer: z.string(), xp: z.number().int().min(0).optional() })).default({}),
   badges: z.record(z.string(), z.string()).default({}),
   // ── v3: journey ──
   oil: z.number().int().min(0).default(0),
@@ -240,7 +240,7 @@ export function useGame(): GameView & { state: StudyState } {
       goalProgress: Math.min(1, todayXp / DAILY_GOAL),
       level: levelFor(state.xp),
       streak: streakInfo(state.days, today),
-      dueCount: Object.values(state.memory).filter((card) => card.box < MASTERED_BOX && card.due <= today).length,
+      dueCount: Object.values(state.memory).filter((card) => card.due <= today).length,
       lordsDay: isLordsDay(today),
       starsTotal: Object.values(state.stars).reduce((sum, value) => sum + value, 0),
     };
@@ -283,12 +283,13 @@ interface MutateExtras {
   sound?: SoundName;
 }
 
+/** Applies a change, awards XP, queues celebrations. Returns the XP actually gained. */
 function mutate(
   recipe: (state: StudyState, today: DayKey) => StudyState,
   awards: Action[] = [],
   origin: Origin | null = null,
   extras: MutateExtras = {},
-): void {
+): number {
   const today = dayKey();
   const before = getSnapshot();
   let next = recipe(before, today);
@@ -324,6 +325,7 @@ function mutate(
   if (levelAfter > levelBefore) events.push({ kind: "level", levelIndex: levelAfter });
   for (const badge of newBadges) events.push({ kind: "badge", badgeId: badge.id });
   celebrate(events);
+  return gained;
 }
 
 // ── Highlights ────────────────────────────────────────────────────
@@ -373,6 +375,16 @@ export function saveNote(verseId: string, text: string, origin: Origin | null = 
 
 // ── Chapters ──────────────────────────────────────────────────────
 
+/** Days of the active plan that this read completes (every chapter of the day now read). */
+function planDaysCompleted(state: StudyState, chaptersRead: Record<string, string>): number[] {
+  const plan = PLANS.find((entry) => entry.id === state.activePlan);
+  if (!plan) return [];
+  const done = new Set(state.planProgress[plan.id] ?? []);
+  return plan.days
+    .filter((day) => !done.has(day.day) && day.chapters.length > 0 && day.chapters.every((chapter) => chaptersRead[chapter]))
+    .map((day) => day.day);
+}
+
 /** Called when the reader reaches the end of a chapter after a real read. */
 export function markChapterRead(chapterId: string): void {
   const today = dayKey();
@@ -381,18 +393,26 @@ export function markChapterRead(chapterId: string): void {
   const combo = nextCombo(current.combo, Date.now());
   const multiplier = comboMultiplier(combo.count);
   const firstStar = current.stars[chapterId] ? 0 : 1;
+  const chaptersRead = current.chaptersRead[chapterId] ? current.chaptersRead : { ...current.chaptersRead, [chapterId]: new Date().toISOString() };
+  // Reading ticks the plan for you; plan XP comes from reading, not from checkboxes.
+  const planDays = planDaysCompleted(current, chaptersRead);
   mutate(
     (state) => {
       const day = state.days[today] ?? { xp: 0, by: {}, chapters: [] };
+      const planId = state.activePlan;
       return {
         ...state,
         combo,
         stars: firstStar ? { ...state.stars, [chapterId]: 1 } : state.stars,
-        chaptersRead: state.chaptersRead[chapterId] ? state.chaptersRead : { ...state.chaptersRead, [chapterId]: new Date().toISOString() },
+        chaptersRead,
+        planProgress:
+          planId && planDays.length > 0
+            ? { ...state.planProgress, [planId]: [...new Set([...(state.planProgress[planId] ?? []), ...planDays])].sort((a, b) => a - b) }
+            : state.planProgress,
         days: { ...state.days, [today]: { ...day, chapters: [...day.chapters, chapterId] } },
       };
     },
-    ["chapter"],
+    ["chapter", ...Array<Action>(planDays.length).fill("plan-day")],
     null,
     { chapterMultiplier: multiplier, oil: firstStar * OIL_PER_STAR, note: multiplier > 1 ? `Combo x${multiplier}` : undefined, sound: "page" },
   );
@@ -538,7 +558,9 @@ export function recordPractice(id: string, correct: boolean, origin: Origin | nu
   if (!card) return;
   const today = dayKey();
   const review = nextReview(card.box, correct, today);
-  const awards: Action[] = correct ? [review.box >= MASTERED_BOX ? "memory-mastered" : "memory-practice"] : [];
+  // Mastery pays once; refreshing an already-mastered verse counts as practice.
+  const newlyMastered = card.box < MASTERED_BOX && review.box >= MASTERED_BOX;
+  const awards: Action[] = correct ? [newlyMastered ? "memory-mastered" : "memory-practice"] : [];
   mutate((state) => ({ ...state, memory: { ...state.memory, [id]: { ...card, ...review } } }), awards, origin);
 }
 
@@ -546,11 +568,15 @@ export function recordPractice(id: string, correct: boolean, origin: Origin | nu
 
 export function answerQuiz(quizDay: string, answer: string, correct: boolean, origin: Origin | null = null): void {
   if (getSnapshot().quiz[quizDay]) return;
-  mutate(
+  const gained = mutate(
     (state) => ({ ...state, quiz: { ...state.quiz, [quizDay]: { correct, answer } } }),
     [correct ? "quiz-correct" : "quiz-tried"],
     origin,
   );
+  // Remember what was actually paid (Lord's Day x2, or 0 if today's cap was already used).
+  const saved = getSnapshot();
+  const entry = saved.quiz[quizDay];
+  if (entry) write({ ...saved, quiz: { ...saved.quiz, [quizDay]: { ...entry, xp: gained } } });
 }
 
 // ── Reading position, translation & plans ─────────────────────────
@@ -565,8 +591,8 @@ export function setActivePlan(planId: string | null): void {
   write({ ...getSnapshot(), activePlan: planId });
 }
 
+/** Manual tick (e.g. read on paper). No XP — reading in Selah ticks days and pays; the paper-Bible check-in covers paper. */
 export function togglePlanDay(planId: string, day: number, origin: Origin | null = null): void {
-  const checking = !(getSnapshot().planProgress[planId] ?? []).includes(day);
   mutate(
     (state) => {
       const done = new Set(state.planProgress[planId] ?? []);
@@ -574,7 +600,7 @@ export function togglePlanDay(planId: string, day: number, origin: Origin | null
       else done.add(day);
       return { ...state, planProgress: { ...state.planProgress, [planId]: [...done].sort((a, b) => a - b) } };
     },
-    checking ? ["plan-day"] : [],
+    [],
     origin,
   );
 }
