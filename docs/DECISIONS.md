@@ -52,3 +52,36 @@
 - **Vercel:** project `marleevisons-projects/selah`, canonical URL **https://selah-rho-sable.vercel.app** (use this, not the per-deployment slug). `API_BIBLE_KEY` set as an encrypted Production env var; `.vercelignore` keeps `.env*` out of uploads.
 - **Sales page** at `/welcome` (Woset style: split headline, the four pilgrim stages, feature cards, badge band, promises, CTA). No pricing claims — Selah is presented as free/no sign-up because nothing else has been decided. Linked from the footer ("About Selah").
 - **Quiz fix:** removed NEH.8.10 from the daily-quiz pool (its text names Nehemiah, giving away the answer); replaced with NEH.1.4.
+
+## 2026-10-09 — Audit and bug-fix pass
+
+Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
+
+- **Identity:** Selah is a game that teaches the Bible. The core loop is today's stop → short passage → play → stars. The next phase simplifies the site to four destinations (Today / Bible / Practice / Me).
+- **Saved data is never discarded.** A value that fails Zod is copied to `selah:v1:backup:<day>`, then salvaged field by field (`salvageStudy`). Each record entry is checked by running the field's own schema on a one-entry object.
+- **Round fairness rules (`lib/challenge.ts`):**
+  - 4 options where the passage allows.
+  - Finish and next options are cut to one length and all end in "…".
+  - A blank hides only a word that appears once. It is split on dashes, replaced by token index, and the round is refused without `_____`.
+  - Blank distractors share the answer's capitalization.
+  - The match round joins beginnings to endings, not verse numbers.
+- **`scripts/check-rounds.ts` is the regression test for generated rounds.** It covers 32 chapters × BSB/NIV/KJV × 12 attempts and must report 0. Normalization lives in `lib/normalise.ts` (no `server-only`) so scripts run the exact app pipeline.
+- **Daily quiz:**
+  - No verse that names its book (`lib/giveaway.ts`).
+  - No twin in another book of the same testament; the verifier checks this through API search with two-way overlap.
+  - Options come from the same section first. Gospel verses must be unique to their Gospel.
+  - The quiz never matches the verse of the day.
+- **Rewards follow reading:**
+  - Chapter XP is capped at 50 base per day.
+  - The goal is 10 XP (one chapter).
+  - Reading ticks plan days and pays plan XP; manual ticks pay nothing.
+  - From 2026-10-10 only study actions light a day. Earlier days keep "any XP" so no streak breaks.
+  - Mastered verses refresh every 30 days.
+- **Lessons:**
+  - A 4–20 s reading pause before play, on the first attempt only.
+  - A per-load seed through `useSyncExternalStore`, which avoids `Math.random()` in render.
+  - "Who said it?" quotes only in BSB lessons.
+  - Checkpoints ask only about the book being walked.
+  - Lightning scores right − wrong.
+- **Not changed, on purpose:** Leitner intervals were reported as off by one. Re-checked: they're correct (1/2/4/8, then 16).
+- **Gotcha:** `"server-only"` throws under `tsx`, so pure parsing must live outside server modules for scripts to import it.
