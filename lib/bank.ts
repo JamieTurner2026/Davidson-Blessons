@@ -59,12 +59,31 @@ function chapterOf(ref: string): string | null {
   return place ? `${place.bookId}.${place.chapter}` : null;
 }
 
-/** Bank questions about a specific chapter (for lessons). */
-export function bankRoundsForChapter(chapterId: string, rand: Rand): ChoiceRound[] {
-  return [
-    ...TRIVIA.filter((item) => chapterOf(item.ref) === chapterId).map((item) => triviaRound(item, rand)),
-    ...WHO_SAID.filter((item) => chapterOf(item.ref) === chapterId).map((item) => whoRound(item, rand)),
-  ];
+/** Keeps the first round for each distinct answer, so one question can't give away another. */
+function distinctAnswers(rounds: ChoiceRound[]): ChoiceRound[] {
+  const seen = new Set<string>();
+  return rounds.filter((round) => {
+    const answer = round.options[round.answer]?.toLowerCase() ?? "";
+    if (seen.has(answer)) return false;
+    seen.add(answer);
+    return true;
+  });
+}
+
+/**
+ * Bank questions about a specific chapter (for lessons), shuffled. "Who said it?" quotes are
+ * in BSB wording, so they only appear when the lesson is in BSB.
+ */
+export function bankRoundsForChapter(chapterId: string, rand: Rand, translation = "bsb"): ChoiceRound[] {
+  return distinctAnswers(
+    shuffle(
+      [
+        ...TRIVIA.filter((item) => chapterOf(item.ref) === chapterId).map((item) => triviaRound(item, rand)),
+        ...(translation === "bsb" ? WHO_SAID.filter((item) => chapterOf(item.ref) === chapterId).map((item) => whoRound(item, rand)) : []),
+      ],
+      rand,
+    ),
+  );
 }
 
 /** Bank questions about a book (optionally a chapter range) — for checkpoints. */
@@ -77,22 +96,6 @@ export function bankRoundsForRange(bookId: string, from: number, to: number, ran
     [
       ...TRIVIA.filter((item) => inRange(item.ref)).map((item) => triviaRound(item, rand)),
       ...WHO_SAID.filter((item) => inRange(item.ref)).map((item) => whoRound(item, rand)),
-    ],
-    rand,
-  );
-}
-
-/** Same-division questions to top up a checkpoint when a book has few of its own. */
-export function bankRoundsForDivision(bookId: string, rand: Rand): ChoiceRound[] {
-  const division = getBook(bookId)?.division;
-  const sameDivision = (ref: string): boolean => {
-    const place = parseVerseId(ref);
-    return place !== null && getBook(place.bookId)?.division === division;
-  };
-  return shuffle(
-    [
-      ...TRIVIA.filter((item) => sameDivision(item.ref)).map((item) => triviaRound(item, rand)),
-      ...WHO_SAID.filter((item) => sameDivision(item.ref)).map((item) => whoRound(item, rand)),
     ],
     rand,
   );

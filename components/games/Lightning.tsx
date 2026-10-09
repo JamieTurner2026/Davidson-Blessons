@@ -9,7 +9,7 @@ import { play } from "@/lib/sound";
 
 const SECONDS = 60;
 
-/** 60 seconds of rapid-fire two-button questions. Wrong answers cost nothing but time. */
+/** 60 seconds of rapid-fire two-button questions. Score = right − wrong, so mashing a button scores nothing. */
 export function Lightning({ rand, onFinish }: { rand: () => number; onFinish: (result: RunResult) => void }): ReactNode {
   // Pin the generator for the whole run so a parent re-render can't replay the sequence.
   const randRef = useRef(rand);
@@ -35,7 +35,11 @@ export function Lightning({ rand, onFinish }: { rand: () => number; onFinish: (r
           if (!finished.current) {
             finished.current = true;
             const { correct: right, answered: total } = totals.current;
-            window.setTimeout(() => onFinishRef.current({ correct: right, score: right, summary: `${right} right out of ${total} in ${SECONDS} seconds` }), 0);
+            const score = Math.max(0, right - (total - right));
+            window.setTimeout(
+              () => onFinishRef.current({ correct: score, score, summary: `${score} points · ${right} right, ${total - right} wrong in ${SECONDS} seconds` }),
+              0,
+            );
           }
           return 0;
         }
@@ -73,7 +77,7 @@ export function Lightning({ rand, onFinish }: { rand: () => number; onFinish: (r
           {left}s
         </span>
         <span className="ws-muted">
-          {correct} right · {answered} answered
+          {Math.max(0, correct - (answered - correct))} points · {answered} answered
         </span>
       </div>
       <div className="lesson__progress" aria-hidden="true">

@@ -1,6 +1,7 @@
 import { QUIZ_POOL } from "@/data/quiz";
+import { VOTD_POOL } from "@/data/votd";
 import { BOOKS, getBook, parseVerseId } from "@/lib/canon";
-import { localDayNumber, sharedDayKey } from "@/lib/votd";
+import { localDayNumber, pickVerseOfDay, sharedDayKey } from "@/lib/votd";
 
 export interface DailyQuiz {
   /** Shared calendar day this quiz belongs to — the key answers are stored under. */
@@ -19,10 +20,12 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-/** Same quiz for everyone on a given day; offset from the verse of the day so they never match. */
+/** Same quiz for everyone on a given day; steps past the verse of the day so the two never match. */
 export function dailyQuiz(date: Date): DailyQuiz {
   const dayNumber = localDayNumber(date);
-  const verseId = QUIZ_POOL[(dayNumber * 7 + 3) % QUIZ_POOL.length];
+  const verseOfDay = pickVerseOfDay(date, VOTD_POOL);
+  const slot = (dayNumber * 7 + 3) % QUIZ_POOL.length;
+  const verseId = QUIZ_POOL[slot] === verseOfDay ? QUIZ_POOL[(slot + 1) % QUIZ_POOL.length] : QUIZ_POOL[slot];
   const answer = parseVerseId(verseId)?.bookId ?? "JHN";
   const testament = getBook(answer)?.testament ?? "NT";
   const random = seededRandom(dayNumber);

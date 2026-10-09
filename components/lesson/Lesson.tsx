@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { Star } from "@/components/ChallengeSheet";
 import { MOTION_OK, gsap, useGSAP } from "@/components/motion/gsap";
 import { RoundRenderer } from "@/components/rounds/RoundRenderer";
 import { bankRoundsForChapter } from "@/lib/bank";
 import { originOf } from "@/lib/celebrations";
-import { generateRounds, segmentVerses, seededRandom, type ChapterVerse, type Question } from "@/lib/challenge";
+import { generateRounds, segmentVerses, seededRandom, words, type ChapterVerse, type Question } from "@/lib/challenge";
 import { MAX_STARS } from "@/lib/game";
 import { markChapterRead, recordChallenge, useStudy } from "@/lib/study-store";
 
@@ -16,9 +16,21 @@ type Card = { type: "passage"; verses: ChapterVerse[]; part: number; parts: numb
 
 const MIN_ROUNDS = 3;
 const MAX_BANK_ROUNDS = 2;
+/** A fast-but-real reading pace for the "I've read it" gate, clamped to a few seconds. */
+const GATE_WORDS_PER_SECOND = 400 / 60;
+const GATE_MIN_SECONDS = 4;
+const GATE_MAX_SECONDS = 20;
+
+// Different questions on every page load, without Math.random() during render (which
+// would break hydration): the server always sees 0, the browser its own load nonce.
+const LOAD_NONCE = typeof window === "undefined" ? 0 : Math.floor(Math.random() * 1_000_000);
+const noopSubscribe = (): (() => void) => () => undefined;
+function useLoadNonce(): number {
+  return useSyncExternalStore(noopSubscribe, () => LOAD_NONCE, () => 0);
+}
 
 /** Builds the lesson: passage cards, each followed by rounds about what was just read. */
-function buildLesson(chapterId: string, verses: ChapterVerse[], attempt: number): Card[] {
+function buildLesson(chapterId: string, verses: ChapterVerse[], attempt: number, translation: string): Card[] {
   const segments = segmentVerses(verses);
   const cards: Card[] = [];
   let roundCount = 0;
@@ -29,7 +41,7 @@ function buildLesson(chapterId: string, verses: ChapterVerse[], attempt: number)
     roundCount += rounds.length;
   });
   const rand = seededRandom(`${chapterId}#bank#${attempt}`);
-  const bank = bankRoundsForChapter(chapterId, rand).slice(0, MAX_BANK_ROUNDS);
+  const bank = bankRoundsForChapter(chapterId, rand, translation).slice(0, MAX_BANK_ROUNDS);
   bank.forEach((round) => cards.push({ type: "round", round }));
   roundCount += bank.length;
   if (roundCount < MIN_ROUNDS) {
@@ -38,7 +50,19 @@ function buildLesson(chapterId: string, verses: ChapterVerse[], attempt: number)
   return cards;
 }
 
-function Passage({ card, label, onNext }: { card: Extract<Card, { type: "passage" }>; label: string; onNext: () => void }): ReactNode {
+function gateSeconds(verses: ChapterVerse[]): number {
+  const count = verses.reduce((sum, verse) => sum + words(verse.text).length, 0);
+  return Math.min(GATE_MAX_SECONDS, Math.max(GATE_MIN_SECONDS, Math.round(count / GATE_WORDS_PER_SECOND)));
+}
+
+function Passage({ card, label, gated, onNext }: { card: Extract<Card, { type: "passage" }>; label: string; gated: boolean; onNext: () => void }): ReactNode {
+  // Short pause before "I've read it" so a stop can't be clicked through unread.
+  const [ready, setReady] = useState(!gated);
+  useEffect(() => {
+    if (!gated) return;
+    const timer = window.setTimeout(() => setReady(true), gateSeconds(card.verses) * 1000);
+    return () => window.clearTimeout(timer);
+  }, [gated, card.verses]);
   const first = card.verses[0]?.number;
   const last = card.verses.at(-1)?.number;
   return (
@@ -56,8 +80,8 @@ function Passage({ card, label, onNext }: { card: Extract<Card, { type: "passage
         ))}
       </div>
       <div className="ws-pills">
-        <button type="button" className="ws-pill ws-pill--primary" onClick={onNext} autoFocus>
-          I&apos;ve read it — play →
+        <button type="button" className="ws-pill ws-pill--primary" onClick={onNext} disabled={!ready} autoFocus>
+          {ready ? <>I&apos;ve read it — play →</> : "Take it in…"}
         </button>
       </div>
     </div>
@@ -135,7 +159,8 @@ interface Props {
 export function Lesson({ chapterId, bookId, label, translation, verses }: Props): ReactNode {
   const { stars: bestStars } = useStudy();
   const [attempt, setAttempt] = useState(0);
-  const cards = useMemo(() => buildLesson(chapterId, verses, attempt), [chapterId, verses, attempt]);
+  const nonce = useLoadNonce();
+  const cards = useMemo(() => buildLesson(chapterId, verses, nonce + attempt, translation), [chapterId, verses, nonce, attempt, translation]);
   const total = cards.filter((card) => card.type === "round").length;
   const [index, setIndex] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -203,7 +228,7 @@ export function Lesson({ chapterId, bookId, label, translation, verses }: Props)
             onReplay={replay}
           />
         ) : card?.type === "passage" ? (
-          <Passage card={card} label={label} onNext={() => advance(null)} />
+          <Passage key={`${attempt}-${index}`} card={card} label={label} gated={attempt === 0} onNext={() => advance(null)} />
         ) : card?.type === "round" ? (
           <div className="lesson__round">
             <span className="ws-label">{card.round.prompt}</span>

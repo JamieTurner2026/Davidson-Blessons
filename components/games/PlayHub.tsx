@@ -9,7 +9,7 @@ import { Lightning } from "@/components/games/Lightning";
 import { MemoryMatch, buildDeck } from "@/components/games/MemoryMatch";
 import { RoundsRun } from "@/components/games/RoundsRun";
 import { Reveal } from "@/components/motion/Reveal";
-import { bankRoundsForDivision, bankRoundsForRange, bookOrderRound, timelineRound, triviaRun } from "@/lib/bank";
+import { bankRoundsForRange, bookOrderRound, timelineRound, triviaRun } from "@/lib/bank";
 import { BOOKS, getBook } from "@/lib/canon";
 import { originOf } from "@/lib/celebrations";
 import { seededRandom, type Question } from "@/lib/challenge";
@@ -30,7 +30,7 @@ const MODES: ModeInfo[] = [
   { mode: "trivia", title: "Trivia", blurb: "Eight questions on people, places, events — and who said it.", unit: "right" },
   { mode: "match", title: "Memory match", blurb: "Flip cards to pair people with their stories (and your memory verses).", unit: "points" },
   { mode: "order", title: "Order up", blurb: "Put books of the Bible and great events in the right order.", unit: "right" },
-  { mode: "lightning", title: "Lightning round", blurb: "60 seconds of rapid-fire true/false. How many can you get?", unit: "right" },
+  { mode: "lightning", title: "Lightning round", blurb: "60 seconds of rapid-fire true/false. Right +1, wrong −1 — no guessing!", unit: "points" },
 ];
 
 /** Book-order round built around a given book (its neighbours in the canon). */
@@ -49,9 +49,10 @@ function Checkpoint({ bookId, at, onExit }: { bookId: string; at: number; onExit
   const { from, to } = checkpointRange(at);
   const rounds = useMemo(() => {
     const rand = seededRandom(`checkpoint:${key}:${attempt}`);
+    // Only ask about this book, up to this checkpoint — chapters the trail has already walked.
     const own = bankRoundsForRange(bookId, from, to, rand).slice(0, 4);
-    const topUp = bankRoundsForDivision(bookId, rand).filter((round) => !own.some((item) => item.clue === round.clue));
-    const list: Question[] = [...own, ...topUp].slice(0, 5);
+    const earlier = from > 1 ? bankRoundsForRange(bookId, 1, from - 1, rand) : [];
+    const list: Question[] = [...own, ...earlier].slice(0, 5);
     return [...list, neighbourOrder(bookId, rand)];
   }, [attempt, bookId, from, key, to]);
   const book = getBook(bookId);
@@ -130,7 +131,7 @@ export function PlayHub({ checkpoint }: { checkpoint: { bookId: string; at: numb
       <GameShell
         mode="trivia"
         title={daily ? "Daily mix" : "Trivia"}
-        blurb={daily ? "Today's eight questions — the same for everyone, all day." : MODES[0].blurb}
+        blurb={daily ? "Today's eight questions — a fresh mix each day." : MODES[0].blurb}
         scoreLabel="right"
         onExit={exit}
       >

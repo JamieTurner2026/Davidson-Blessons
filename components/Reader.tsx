@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { ChallengeSheet, Star } from "@/components/ChallengeSheet";
 import { originOf } from "@/lib/celebrations";
 import { chapterLabel, parseChapterId, verseLabel } from "@/lib/canon";
-import type { ChapterVerse } from "@/lib/challenge";
+import { appendRun, type ChapterVerse } from "@/lib/challenge";
 import { dayKey } from "@/lib/day";
 import { COMBO_WINDOW_MS, MAX_STARS, TREASURE_OIL, comboMultiplier, treasureVerse } from "@/lib/game";
 import type { Block } from "@/lib/schemas";
@@ -36,7 +36,7 @@ function verseTextMap(blocks: Block[]): Map<string, string> {
     if (block.kind !== "para") continue;
     for (const segment of block.segments) {
       if (!segment.verseId) continue;
-      map.set(segment.verseId, `${map.get(segment.verseId) ?? ""}${segment.text}`);
+      map.set(segment.verseId, appendRun(map.get(segment.verseId) ?? "", segment.text));
     }
   }
   return map;
@@ -102,7 +102,7 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
   const verses = useMemo<ChapterVerse[]>(
     () =>
       [...texts.entries()]
-        .map(([id, text]) => ({ number: Number(id.split(".")[2]), text: text.trim() }))
+        .map(([id, text]) => ({ number: Number(id.split(".")[2]), text: text.replace(/\s+/g, " ").trim() }))
         .filter((verse) => Number.isFinite(verse.number))
         .sort((a, b) => a.number - b.number),
     [texts],

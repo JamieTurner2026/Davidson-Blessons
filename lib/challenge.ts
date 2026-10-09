@@ -89,11 +89,32 @@ export function scrambledOrder(length: number, rand: () => number): number[] {
   return order.every((value, index) => value === index) ? [...identity.slice(1), identity[0]] : order;
 }
 
+/** Rounds aim for 4 options; short passages may fall back to 3, never fewer. */
+const DISTRACTORS = 3;
+const MIN_OPTIONS = 3;
+
 /** Shuffles `correct` in among distractors; returns options + the answer's index. */
-function withDistractors(correct: string, distractors: string[], rand: () => number, count = 2): { options: string[]; answer: number } {
-  const unique = [...new Set(distractors.filter((text) => text !== correct))].slice(0, count);
+function withDistractors(correct: string, distractors: string[], rand: () => number, count = DISTRACTORS): { options: string[]; answer: number } {
+  const seen = new Set([correct.toLowerCase()]);
+  const unique: string[] = [];
+  for (const text of distractors) {
+    if (unique.length >= count) break;
+    if (seen.has(text.toLowerCase())) continue;
+    seen.add(text.toLowerCase());
+    unique.push(text);
+  }
   const options = shuffle([correct, ...unique], rand);
   return { options, answer: options.indexOf(correct) };
+}
+
+/**
+ * Cuts every option to the same word count and ends them all with "…", so length and
+ * punctuation never give the answer away. Returns null if the shared length is too short.
+ */
+function evenOptions(texts: string[], max: number, min = 4): string[] | null {
+  const length = Math.min(max, ...texts.map((text) => words(text).length));
+  if (length < min) return null;
+  return texts.map((text) => `${words(text).slice(0, length).join(" ").replace(/[\s,.;:!?—–-]+$/u, "")} …`);
 }
 
 type Maker = (verses: ChapterVerse[], rand: () => number, used: Set<number>) => Question | null;
@@ -109,9 +130,13 @@ const finishQuestion: Maker = (verses, rand, used) => {
     return { head: list.slice(0, cut).join(" "), tail: list.slice(cut).join(" ") };
   };
   const { head, tail } = split(target);
-  const others = shuffle(eligible.filter((verse) => verse.number !== target.number), rand).map((verse) => clip(split(verse).tail, 16));
-  const { options, answer } = withDistractors(clip(tail, 16), others, rand);
-  if (options.length < 3) return null;
+  const others = shuffle(eligible.filter((verse) => verse.number !== target.number), rand)
+    .slice(0, DISTRACTORS)
+    .map((verse) => split(verse).tail);
+  const even = evenOptions([tail, ...others], 16);
+  if (!even) return null;
+  const { options, answer } = withDistractors(even[0], even.slice(1), rand);
+  if (options.length < MIN_OPTIONS) return null;
   used.add(target.number);
   return { kind: "finish", prompt: `Finish verse ${target.number}`, clue: `${head} …`, options, answer };
 };
@@ -123,11 +148,15 @@ const nextQuestion: Maker = (verses, rand, used) => {
   if (!start) return null;
   const following = verses[verses.indexOf(start) + 1];
   const others = shuffle(
-    verses.filter((verse) => verse.number !== start.number && verse.number !== following.number),
+    verses.filter((verse) => verse.number !== start.number && verse.number !== following.number && words(verse.text).length >= 4),
     rand,
-  ).map((verse) => clip(verse.text, 14));
-  const { options, answer } = withDistractors(clip(following.text, 14), others, rand);
-  if (options.length < 3) return null;
+  )
+    .slice(0, DISTRACTORS)
+    .map((verse) => verse.text);
+  const even = evenOptions([following.text, ...others], 14);
+  if (!even) return null;
+  const { options, answer } = withDistractors(even[0], even.slice(1), rand);
+  if (options.length < MIN_OPTIONS) return null;
   used.add(start.number);
   return { kind: "next", prompt: `What comes after verse ${start.number}?`, clue: clip(start.text, 30), options, answer };
 };
@@ -146,11 +175,42 @@ const orderQuestion: Maker = (verses, rand, used) => {
   return { kind: "order", prompt: `Put verses ${run[0].number}–${run[2].number} in order`, items, shuffled: scrambledOrder(3, rand) };
 };
 
-/** A meaningful word worth hiding: 5+ letters and not a filler word. */
-function keyWords(text: string): string[] {
-  return words(text)
-    .map(bare)
-    .filter((word) => word.length >= 5 && !STOP_WORDS.has(word.toLowerCase()));
+/**
+ * Splits a verse into tokens, keeping whitespace and dashes as their own tokens so the
+ * text can be rebuilt exactly. BSB/NIV join clauses with unspaced em dashes
+ * ("morning—the"), which must never be treated as one word.
+ */
+function tokens(text: string): string[] {
+  return text.split(/(\s+|[—–])/u).filter((token) => token !== "");
+}
+
+interface KeyWord {
+  word: string;
+  /** Index into `tokens(text)`. */
+  index: number;
+}
+
+/**
+ * Words worth hiding: 5+ letters, not filler, appearing only once in the verse
+ * (so the answer isn't left visible elsewhere), and contiguous inside their token
+ * (so the blank can actually be cut out).
+ */
+function keyWords(text: string): KeyWord[] {
+  const list = tokens(text);
+  const counts = new Map<string, number>();
+  for (const token of list) {
+    const word = bare(token).toLowerCase();
+    if (word) counts.set(word, (counts.get(word) ?? 0) + 1);
+  }
+  return list.flatMap((token, index) => {
+    const word = bare(token);
+    const ok = word.length >= 5 && !STOP_WORDS.has(word.toLowerCase()) && counts.get(word.toLowerCase()) === 1 && token.includes(word);
+    return ok ? [{ word, index }] : [];
+  });
+}
+
+function isCapitalized(word: string): boolean {
+  return /^\p{Lu}/u.test(word);
 }
 
 const blankQuestion: Maker = (verses, rand, used) => {
@@ -158,38 +218,45 @@ const blankQuestion: Maker = (verses, rand, used) => {
   const target = pick(eligible, rand);
   if (!target) return null;
   const candidates = keyWords(target.text);
-  const hidden = candidates.reduce((longest, word) => (word.length > longest.length ? word : longest), candidates[0]);
-  const pool = verses
-    .filter((verse) => verse.number !== target.number)
-    .flatMap((verse) => keyWords(verse.text))
-    .filter((word) => word.toLowerCase() !== hidden.toLowerCase());
-  const distinct = [...new Map(pool.map((word) => [word.toLowerCase(), word])).values()];
-  if (distinct.length < 2) return null;
-  const { options, answer } = withDistractors(hidden, shuffle(distinct, rand), rand);
-  let replaced = false;
-  const clue = words(target.text)
-    .map((word) => {
-      if (!replaced && bare(word) === hidden) {
-        replaced = true;
-        return word.replace(hidden, "_____");
-      }
-      return word;
-    })
-    .join(" ");
+  const hidden = candidates.reduce((longest, entry) => (entry.word.length > longest.word.length ? entry : longest), candidates[0]);
+  const distinct = [
+    ...new Map(
+      verses
+        .filter((verse) => verse.number !== target.number)
+        .flatMap((verse) => keyWords(verse.text).map((entry) => entry.word))
+        .filter((word) => word.toLowerCase() !== hidden.word.toLowerCase())
+        .map((word) => [word.toLowerCase(), word]),
+    ).values(),
+  ];
+  // Same capitalisation as the answer, so a lone proper noun (or lone lowercase word) can't give it away.
+  const sameCase = distinct.filter((word) => isCapitalized(word) === isCapitalized(hidden.word));
+  if (sameCase.length < MIN_OPTIONS - 1) return null;
+  const { options, answer } = withDistractors(hidden.word, shuffle(sameCase, rand), rand);
+  const list = tokens(target.text);
+  list[hidden.index] = list[hidden.index].replace(hidden.word, "_____");
+  const clue = list.join("");
+  if (!clue.includes("_____")) return null;
   used.add(target.number);
   return { kind: "blank", prompt: `Fill in the missing word · verse ${target.number}`, clue, options, answer };
 };
 
+/** Joins each verse's beginning to its ending — tests the words, not the verse numbers. */
 const matchQuestion: Maker = (verses, rand, used) => {
-  const eligible = verses.filter((verse) => words(verse.text).length >= MIN_WORDS && !used.has(verse.number));
+  const eligible = verses.filter((verse) => words(verse.text).length >= MIN_WORDS + 4 && !used.has(verse.number));
   if (eligible.length < 3) return null;
-  const chosen = shuffle(eligible, rand)
-    .slice(0, 3)
-    .sort((a, b) => a.number - b.number);
-  const pairs = chosen.map((verse) => ({ left: `Verse ${verse.number}`, right: clip(verse.text, 8) }));
+  const chosen = shuffle(eligible, rand).slice(0, 3);
+  const pairs = chosen.map((verse) => {
+    const list = words(verse.text);
+    const cut = Math.ceil(list.length / 2);
+    const head = list.slice(Math.max(0, cut - 6), cut);
+    return {
+      left: `${cut > 6 ? "… " : ""}${head.join(" ")}`,
+      right: `${list.slice(cut, cut + 6).join(" ")}${list.length > cut + 6 ? " …" : ""}`,
+    };
+  });
   if (new Set(pairs.map((pair) => pair.right)).size < pairs.length) return null;
   chosen.forEach((verse) => used.add(verse.number));
-  return { kind: "match", prompt: "Match each verse to its words", pairs, shuffled: scrambledOrder(3, rand) };
+  return { kind: "match", prompt: "Join each beginning to its ending", pairs, shuffled: scrambledOrder(3, rand) };
 };
 
 const ALL_MAKERS: Maker[] = [finishQuestion, nextQuestion, orderQuestion, blankQuestion, matchQuestion];
@@ -223,6 +290,12 @@ export function segmentVerses(verses: ChapterVerse[], maxCards = 4, target = 7):
   return segments;
 }
 
+/** Runs split at paragraph/quote boundaries can lack a joining space ("water.”So"). */
+export function appendRun(previous: string, text: string): string {
+  const needsSpace = previous !== "" && !/\s$/.test(previous) && !/^[\s,.;:!?’”)\]]/.test(text);
+  return `${previous}${needsSpace ? " " : ""}${text}`;
+}
+
 /** Flattens normalised chapter blocks into numbered verses. */
 export function versesFromBlocks(blocks: ReadonlyArray<{ kind: string; segments?: ReadonlyArray<{ verseId: string | null; text: string }> }>): ChapterVerse[] {
   const map = new Map<number, string>();
@@ -231,10 +304,7 @@ export function versesFromBlocks(blocks: ReadonlyArray<{ kind: string; segments?
       if (!segment.verseId) continue;
       const number = Number(segment.verseId.split(".")[2]);
       if (!Number.isFinite(number)) continue;
-      const previous = map.get(number) ?? "";
-      // Runs split at paragraph/quote boundaries can lack a joining space ("water.”So").
-      const needsSpace = previous !== "" && !/\s$/.test(previous) && !/^[\s,.;:!?’”)\]]/.test(segment.text);
-      map.set(number, `${previous}${needsSpace ? " " : ""}${segment.text}`);
+      map.set(number, appendRun(map.get(number) ?? "", segment.text));
     }
   }
   return [...map.entries()]
