@@ -3,7 +3,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
-import { BackupPanel } from "@/components/BackupPanel";
+import { AccountPanel } from "@/components/AccountPanel";
 import { CountUp } from "@/components/motion/CountUp";
 import { Lamp } from "@/components/motion/Lamp";
 import { ProgressFill } from "@/components/motion/ProgressFill";
@@ -146,7 +146,7 @@ export function JourneyClient(): ReactNode {
         </div>
       </section>
 
-      <BackupPanel />
+      <AccountPanel />
     </Reveal>
   );
 }

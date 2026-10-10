@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter_Tight } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { AccountSync } from "@/components/AccountSync";
 import { Footer } from "@/components/Footer";
 import { Celebrations } from "@/components/motion/Celebrations";
 import { Nav } from "@/components/Nav";
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
           <Footer />
         </div>
         <Celebrations />
+        <AccountSync />
       </body>
     </html>
   );

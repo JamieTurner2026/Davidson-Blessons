@@ -93,3 +93,30 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - **Legacy `notes` field kept in the schema** so anything already written survives in backups instead of being silently stripped. `planProgress`/`activePlan` were dropped; Zod strips them on the next save.
 - The badge count on Journey counts only badges that still exist.
 - Nav is now Trail · Read · Play · Search | Memory (+ oil and streak icons).
+
+## 2026-10-10 — Optional accounts with sync
+
+- **Decided:**
+  - Sign-in is **optional**, by **email link + Google**, on a new free Supabase project (`selah`, `gohyiyppobpqfxrsnlns`).
+  - Selah keeps working fully signed out.
+- **Browser-only auth:**
+  - supabase-js with PKCE keeps the session in localStorage (`selah:auth`).
+  - No `proxy.ts`, cookies or server session: no server code needs the user, and the Next 16 docs warn against Proxy as a session manager.
+  - Tokens expire after 1 h and refresh rotates.
+- **Data:**
+  - `public.progress(user_id pk → auth.users, state jsonb, updated_at)`, with a size check and an object check.
+  - RLS: owner-only for select/insert/update/delete. `anon` has no access.
+  - A trigger sets `updated_at` on the server.
+  - `ping()` exists for the keep-alive.
+  - Advisors were clean. Owner-only access was verified by pretending to be two users in SQL.
+- **Sync:**
+  - localStorage stays the working copy.
+  - Every pull merges (`mergeStudy`): union for fields that only grow, max for fields that only improve, XP = the sum of merged days (`applyAward` is the only XP writer), oil = max (cosmetics only), and preferences stay per device.
+  - The merge is idempotent, checked by `scripts/check-merge.ts`.
+  - Pushes are debounced 2 s after any write (`setWriteHook`) and flushed when the tab is hidden. A pull also runs on tab focus (throttled to 30 s).
+- **Gotcha:** with PKCE, an email link only works in the browser that requested it. The UI says so.
+- **Keep-alive:** a daily Vercel cron calls `/api/keepalive` → `ping()`, so the free project doesn't pause after 7 idle days.
+- **Backup file kept** as a quieter option under "Your account".
+- **Pending (Mike):**
+  - The four dashboard steps in `docs/RUNBOOKS.md`.
+  - The conflict rule in `resolveMemoryCard` (learning-mode contribution; the default is higher box, then earlier due date).

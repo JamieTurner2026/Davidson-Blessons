@@ -454,6 +454,11 @@ a.tile:hover { border-color: var(--ws-accent); }
 .nav-icon:hover { background: var(--ws-accent-wash); }
 .nav-icon[aria-pressed="false"] { color: var(--ws-muted); }
 .nav-oil { padding: 4px 11px 2px 8px; gap: 5px; }
+/* Account: a quiet pill when signed out, a round initial when signed in. */
+.nav-account { display: inline-flex; align-items: center; justify-content: center; border: var(--border-hairline); border-radius: var(--radius-pill); padding: 4px 12px 3px; line-height: 1; }
+.nav-account:hover { text-decoration: none; border-color: var(--ws-fg); }
+.nav-account--signed-in { width: 28px; height: 28px; padding: 0; font-weight: var(--font-weight-medium); }
+.account__backup summary { cursor: pointer; width: fit-content; }
 .home-trail { display: flex; flex-direction: column; gap: 22px; }
 .lords-day { text-align: center; padding: 10px 16px 8px; border: var(--border-hairline); border-radius: var(--radius-pill); align-self: center; }
 @media (max-width: 640px) { .nav-icon, .nav-oil { order: -1; } }

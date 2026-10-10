@@ -16,7 +16,8 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 - **`API_BIBLE_KEY` is server-only.** It is read only in `lib/apibible.ts` (`import "server-only"`). Never prefix it `NEXT_PUBLIC_`, never import `lib/apibible.ts` from a client component. After builds, `grep -r "$API_BIBLE_KEY" .next` must find nothing.
 - **Allowlist only.** New translations go in `lib/bibles.ts`; chapter/verse IDs are validated against the static canon in `lib/canon.ts` before any API call.
 - **Licensing.** Every rendered scripture response must (1) show its `copyright` string and (2) report its `fumsToken` via `<Fums token=… />` (API.Bible FUMS v3). NIV is copyrighted — keep both in place.
-- **Personal data stays local.** Highlights, memory verses and game progress live in localStorage (`lib/study-store.ts`, key `selah:v1`, Zod-validated). No accounts, no DB in v1.
+- **Local first, optional account.** Highlights, memory verses and game progress live in localStorage (`lib/study-store.ts`, key `selah:v1`, Zod-validated). Signing in (Supabase project `selah`, email link + Google) syncs that state to one `public.progress` row per user. RLS is owner-only, and every pull **merges** (`lib/merge.ts`; never overwrite). Selah must keep working fully signed out. Setup steps: `docs/RUNBOOKS.md`.
+- **Supabase keys:** only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public by design). Never add a service-role key to this app. A new field in the study state needs a rule in `mergeStudy` and a case in `scripts/check-merge.ts`.
 - **Woset guardrails:** one marigold fill per viewport, no shadows/gradients, pills (30px) for controls, square art, 15/25/95 type. Approved exceptions: scripture body 19px/1.6; playful GSAP motion (always behind reduced-motion checks).
 - **Gamification ethos:** encourage, never punish (rest days, paper-Bible check-in, no leaderboards). Any new XP source needs a daily cap in `XP_RULES`.
 - **Don't name CSS classes after Tailwind utilities** (`.ring` bit us).
@@ -31,4 +32,5 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 - `components/motion/` — GSAP primitives (Reveal, SplitHeadline, CountUp, ProgressFill, Lamp) + `Celebrations` (toasts, modal, confetti) mounted in the layout
 - Pages: `/map` (journey trail + pilgrim), `/lesson/[t]/[chapter]` (passage cards + rounds), `/play` (trivia, match, order, lightning, checkpoints), `/workshop` (oil shop), `/journey`, `/library`, `/memory`
 - `lib/challenge.ts` (verse-generated rounds, segments), `lib/bank.ts` + `data/trivia.ts` (curated questions — run `npx tsx scripts/verify-trivia.ts` after editing), `components/rounds/RoundRenderer.tsx` (one renderer for every round type)
+- `lib/supabase.ts` (browser client) · `lib/sync.ts` (sign-in, pull/merge/push) · `lib/merge.ts` (merge rules) · `components/AccountPanel.tsx` (Journey → Your account) · `/auth/callback`
 - `docs/DECISIONS.md` — why things are the way they are

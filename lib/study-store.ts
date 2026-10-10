@@ -172,6 +172,23 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+// Account sync (lib/sync.ts) listens here, so this module never imports the network layer.
+let writeHook: ((next: StudyState) => void) | null = null;
+
+export function setWriteHook(hook: ((next: StudyState) => void) | null): void {
+  writeHook = hook;
+}
+
+/** The current state, for the sync engine. */
+export function currentStudy(): StudyState {
+  return getSnapshot();
+}
+
+/** Replaces local state with a merged copy from the account (still a normal write). */
+export function replaceStudy(next: StudyState): void {
+  write(next);
+}
+
 function write(next: StudyState): void {
   cache = next;
   try {
@@ -180,6 +197,7 @@ function write(next: StudyState): void {
     // Private mode / quota: keep the in-memory state so the session still works.
   }
   listeners.forEach((listener) => listener());
+  writeHook?.(next);
 }
 
 export function useStudy(): StudyState {

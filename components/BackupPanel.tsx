@@ -5,7 +5,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { exportStudy, importStudy } from "@/lib/study-store";
 
 /** Everything lives in this browser, so this is the one way to carry progress to another device. */
-export function BackupPanel(): ReactNode {
+export function BackupPanel({ heading = true }: { heading?: boolean }): ReactNode {
   const [message, setMessage] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -30,10 +30,10 @@ export function BackupPanel(): ReactNode {
   };
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <h2 className="ws-heading">Back up your progress</h2>
+    <section style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: heading ? 0 : 14 }}>
+      {heading && <h2 className="ws-heading">Back up your progress</h2>}
       <span className="ws-muted">
-        Your journey is saved only in this browser. Save a backup file to keep it safe or move it to another device.
+        A backup file holds everything in this browser. Restore it here or on another device.
       </span>
       <div className="ws-pills ws-pills--start">
         <button type="button" className="ws-pill" onClick={download}>

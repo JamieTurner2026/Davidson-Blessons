@@ -38,7 +38,7 @@ const FEATURES: ReadonlyArray<{ title: string; body: string; art: string }> = [
 const PROMISES: ReadonlyArray<{ title: string; body: string }> = [
   { title: "Encourage, never punish", body: "One rest day a week never breaks your streak, and reading a paper Bible counts too." },
   { title: "Six translations", body: "BSB, NIV, KJV, WEB, ASV and LSV — switch any time, with your highlights following you." },
-  { title: "Private by design", body: "No account and no tracking. Your progress stays in your own browser." },
+  { title: "Private by design", body: "No account needed and no tracking. Sign in only if you want your progress on every device." },
 ];
 
 const STAGES = [1, 2, 3, 4];
