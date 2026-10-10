@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
+import { BackupPanel } from "@/components/BackupPanel";
 import { CountUp } from "@/components/motion/CountUp";
 import { Lamp } from "@/components/motion/Lamp";
 import { ProgressFill } from "@/components/motion/ProgressFill";
@@ -129,7 +130,7 @@ export function JourneyClient(): ReactNode {
 
       <section style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <h2 className="ws-heading">
-          Badges · {Object.keys(state.badges).length}/{BADGES.length}
+          Badges · {BADGES.filter((badge) => state.badges[badge.id]).length}/{BADGES.length}
         </h2>
         <div className="badges">
           {BADGES.map((badge) => {
@@ -144,6 +145,8 @@ export function JourneyClient(): ReactNode {
           })}
         </div>
       </section>
+
+      <BackupPanel />
     </Reveal>
   );
 }

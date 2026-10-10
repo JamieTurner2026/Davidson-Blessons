@@ -15,7 +15,6 @@ import {
   highlightVerses,
   markChapterRead,
   memorize,
-  saveNote,
   setLastRead,
   useStudy,
 } from "@/lib/study-store";
@@ -59,42 +58,8 @@ function sortVerseIds(ids: Iterable<string>): string[] {
   return [...ids].sort((a, b) => Number(a.split(".")[2]) - Number(b.split(".")[2]));
 }
 
-function NoteEditor({ verseId, initial }: { verseId: string; initial: string }): ReactNode {
-  const [draft, setDraft] = useState(initial);
-  const [saved, setSaved] = useState(false);
-  return (
-    <form
-      className="ws-stack"
-      style={{ gap: 10, padding: 0 }}
-      onSubmit={(event) => {
-        event.preventDefault();
-        const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
-        saveNote(verseId, draft, originOf(submitter));
-        setSaved(true);
-      }}
-    >
-      <textarea
-        className="ws-textarea"
-        rows={3}
-        maxLength={5000}
-        placeholder={`A note on ${verseLabel(verseId)}…`}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setSaved(false);
-        }}
-      />
-      <div className="ws-pills ws-pills--start">
-        <button type="submit" className="ws-pill">
-          {saved ? "Saved" : "Save note"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
-  const { highlights, notes, memory, days, chaptersRead, stars, combo, treasures, equipped } = useStudy();
+  const { highlights, memory, days, chaptersRead, stars, combo, treasures, equipped } = useStudy();
   const readToday = days[dayKey()]?.chapters.includes(chapterId) ?? false;
   const everRead = Boolean(chaptersRead[chapterId]);
   const endMarker = useRef<HTMLDivElement>(null);
@@ -243,7 +208,6 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
                   >
                     {segment.verseNumber && <sup className="verse__num">{segment.verseNumber}</sup>}
                     {segment.text}
-                    {anchor && notes[verseId] && <span className="verse__note" title="Has a note" />}
                   </span>
                 );
               })}
@@ -324,8 +288,6 @@ export function Reader({ blocks, translation, chapterId }: Props): ReactNode {
               </button>
             </div>
           </div>
-          {single && <NoteEditor key={single} verseId={single} initial={notes[single]?.text ?? ""} />}
-          {!single && <span className="ws-muted">Select a single verse to write a note.</span>}
         </div>
       )}
     </>

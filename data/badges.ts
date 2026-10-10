@@ -79,14 +79,6 @@ export const BADGES: ReadonlyArray<Badge> = [
     earned: (s) => s.mastered >= 1,
   },
   {
-    id: "scribe",
-    name: "Scribe",
-    hint: "Write 10 notes.",
-    blurb: "Ten reflections written down.",
-    image: "/badges/scribe.webp",
-    earned: (s) => s.notes >= 10,
-  },
-  {
     id: "seeker",
     name: "Seeker",
     hint: "Answer 7 daily quizzes correctly.",
@@ -101,14 +93,6 @@ export const BADGES: ReadonlyArray<Badge> = [
     blurb: "Ten books on your shelf.",
     image: "/badges/bookworm.webp",
     earned: (s) => s.booksComplete.size >= 10,
-  },
-  {
-    id: "finisher",
-    name: "Finisher",
-    hint: "Complete a reading plan.",
-    blurb: "You finished the race you started.",
-    image: "/badges/finisher.webp",
-    earned: (s) => s.plansComplete >= 1,
   },
   {
     id: "trailblazer",

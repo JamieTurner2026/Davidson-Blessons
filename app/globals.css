@@ -201,7 +201,6 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoratio
 
 .verse.is-selected { text-decoration: underline; text-decoration-color: var(--ws-fg); text-underline-offset: 5px; text-decoration-thickness: 1.5px; }
 .verse__num { font-size: 11px; vertical-align: super; line-height: 0; color: var(--ws-muted); margin-right: 3px; font-variant-numeric: tabular-nums; letter-spacing: 0; }
-.verse__note { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ws-fg); margin-left: 4px; vertical-align: middle; }
 
 .selection-bar {
   position: sticky;
@@ -225,14 +224,6 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoratio
 .picker__book:hover { background: var(--ws-accent-wash); }
 .picker__book[aria-pressed="true"] { font-weight: var(--font-weight-medium); text-decoration: underline; text-underline-offset: 3px; }
 .picker__chapters { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* ── Plans ──────────────────────────────────────────────────────── */
-.progress { height: 4px; background: color-mix(in srgb, var(--ws-border) 60%, var(--ws-bg)); border-radius: 2px; overflow: hidden; }
-.progress > span { display: block; height: 100%; background: var(--ws-fg); }
-.day-row { display: flex; gap: 14px; align-items: baseline; }
-.check { appearance: none; width: 20px; height: 20px; flex: none; border: var(--border-hairline); border-radius: 50%; cursor: pointer; display: grid; place-items: center; transform: translateY(4px); background: var(--ws-bg); }
-.check:checked { background: var(--ws-fg); border-color: var(--ws-fg); }
-.check:checked::after { content: ""; width: 6px; height: 10px; border: solid var(--ws-bg); border-width: 0 1.5px 1.5px 0; transform: translateY(-1px) rotate(45deg); }
 
 .footer { padding-block: 30px; color: var(--ws-muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; }
 

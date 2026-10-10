@@ -16,7 +16,7 @@ const interTight = Inter_Tight({
 
 export const metadata: Metadata = {
   title: { default: "Selah — Bible study", template: "%s · Selah" },
-  description: "Read, search, highlight and take notes on Scripture. A quiet place to study.",
+  description: "Read Scripture, play its lessons and walk the trail, one stop at a time.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }): ReactNode {

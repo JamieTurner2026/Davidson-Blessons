@@ -8,8 +8,6 @@ import { addDays, dayNumber, fromDayNumber, weekday, type DayKey } from "@/lib/d
 export type Action =
   | "chapter"
   | "highlight"
-  | "note"
-  | "plan-day"
   | "memory-practice"
   | "memory-mastered"
   | "quiz-correct"
@@ -27,8 +25,6 @@ interface XpRule {
 export const XP_RULES: Record<Action, XpRule> = {
   chapter: { xp: 10, dailyCap: 50 },
   highlight: { xp: 2, dailyCap: 10 },
-  note: { xp: 5, dailyCap: 25 },
-  "plan-day": { xp: 15, dailyCap: 45 },
   "memory-practice": { xp: 10, dailyCap: 50 },
   "memory-mastered": { xp: 25 },
   "quiz-correct": { xp: 15, dailyCap: 15 },
@@ -108,7 +104,7 @@ export interface StreakInfo {
 }
 
 /** Study actions that light a day. Games and the quiz are fun, but don't keep a streak alone. */
-const LIGHTING_ACTIONS: ReadonlyArray<Action> = ["chapter", "highlight", "note", "plan-day", "memory-practice", "memory-mastered", "checkin"];
+const LIGHTING_ACTIONS: ReadonlyArray<Action> = ["chapter", "highlight", "memory-practice", "memory-mastered", "checkin"];
 /** Days before this keep the original rule (any XP), so nobody's existing streak breaks. */
 const STRICT_LIT_FROM: DayKey = "2026-10-10";
 
@@ -195,12 +191,10 @@ export interface GameSnapshot {
   treasures: number;
   cosmeticsOwned: number;
   booksComplete: ReadonlySet<string>;
-  notes: number;
   mastered: number;
   quizCorrect: number;
   longestStreak: number;
   perfectWeeks: number;
-  plansComplete: number;
 }
 
 // ── Bonuses (applied AFTER daily caps, so nothing becomes farmable) ──

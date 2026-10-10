@@ -85,3 +85,11 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
   - Lightning scores right − wrong.
 - **Not changed, on purpose:** Leitner intervals were reported as off by one. Re-checked: they're correct (1/2/4/8, then 16).
 - **Gotcha:** `"server-only"` throws under `tsx`, so pure parsing must live outside server modules for scripts to import it.
+
+## 2026-10-10 — Plans and notes removed
+
+- **Removed, by Mike's call (first simplification step):** reading plans (`/plans`, `data/plans.ts`, plan XP, Finisher badge) and notes (`/notes`, the reader's note editor, note XP, Scribe badge, quill sound). Highlights stay.
+- **Backup/restore moved** to the Journey page (`components/BackupPanel.tsx`). Progress lives only in the browser, so this stays the one way to keep it.
+- **Legacy `notes` field kept in the schema** so anything already written survives in backups instead of being silently stripped. `planProgress`/`activePlan` were dropped; Zod strips them on the next save.
+- The badge count on Journey counts only badges that still exist.
+- Nav is now Trail · Read · Play · Search | Memory (+ oil and streak icons).

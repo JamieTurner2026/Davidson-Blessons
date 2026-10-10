@@ -11,7 +11,7 @@ export function Footer(): ReactNode {
         <a href="https://scripture.api.bible" target="_blank" rel="noreferrer">
           API.Bible
         </a>
-        . Your notes stay in this browser.
+        . Your progress stays in this browser.
       </span>
     </footer>
   );

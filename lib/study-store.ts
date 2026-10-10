@@ -4,7 +4,6 @@ import { useMemo, useSyncExternalStore } from "react";
 import { z } from "zod";
 
 import { BADGES } from "@/data/badges";
-import { PLANS } from "@/data/plans";
 import { COSMETICS, DEFAULT_EQUIPPED, getCosmetic, type CosmeticSlot } from "@/data/cosmetics";
 import { celebrate, type Celebration, type Origin, type SoundName } from "@/lib/celebrations";
 import { BOOKS } from "@/lib/canon";
@@ -53,9 +52,9 @@ const memorySchema = z.object({
 
 const studySchema = z.object({
   highlights: z.record(z.string(), z.object({ createdAt: z.string() })).default({}),
+  // Legacy: notes were removed on 2026-10-10. Kept in the schema so anything already
+  // written survives in backups instead of being silently stripped.
   notes: z.record(z.string(), z.object({ text: z.string().max(5000), updatedAt: z.string() })).default({}),
-  planProgress: z.record(z.string(), z.array(z.number().int())).default({}),
-  activePlan: z.string().nullable().default(null),
   lastRead: z.object({ translation: z.string(), chapterId: z.string() }).nullable().default(null),
   translation: z.string().default("bsb"),
   // ── v2: game ──
@@ -205,12 +204,10 @@ function snapshotOf(state: StudyState, today: DayKey): GameSnapshot {
   return {
     chaptersRead: new Set(Object.keys(state.chaptersRead)),
     booksComplete: booksComplete(state.chaptersRead),
-    notes: Object.keys(state.notes).length,
     mastered: Object.values(state.memory).filter((card) => card.box >= MASTERED_BOX).length,
     quizCorrect: Object.values(state.quiz).filter((entry) => entry.correct).length,
     longestStreak: streak.longest,
     perfectWeeks: streak.perfectWeeks,
-    plansComplete: PLANS.filter((plan) => (state.planProgress[plan.id] ?? []).length >= plan.days.length).length,
     starsTotal: Object.values(state.stars).reduce((sum, value) => sum + value, 0),
     treasures: Object.keys(state.treasures).length,
     cosmeticsOwned: state.owned.length,
@@ -355,35 +352,7 @@ export function highlightVerses(selected: string[], origin: Origin | null = null
   );
 }
 
-// ── Notes ─────────────────────────────────────────────────────────
-
-export function saveNote(verseId: string, text: string, origin: Origin | null = null): void {
-  const isNew = !getSnapshot().notes[verseId];
-  const trimmed = text.trim().slice(0, 5000);
-  mutate(
-    (state) => {
-      const notes = { ...state.notes };
-      if (trimmed) notes[verseId] = { text: trimmed, updatedAt: new Date().toISOString() };
-      else delete notes[verseId];
-      return { ...state, notes };
-    },
-    isNew && trimmed ? ["note"] : [],
-    origin,
-    { sound: "quill" },
-  );
-}
-
 // ── Chapters ──────────────────────────────────────────────────────
-
-/** Days of the active plan that this read completes (every chapter of the day now read). */
-function planDaysCompleted(state: StudyState, chaptersRead: Record<string, string>): number[] {
-  const plan = PLANS.find((entry) => entry.id === state.activePlan);
-  if (!plan) return [];
-  const done = new Set(state.planProgress[plan.id] ?? []);
-  return plan.days
-    .filter((day) => !done.has(day.day) && day.chapters.length > 0 && day.chapters.every((chapter) => chaptersRead[chapter]))
-    .map((day) => day.day);
-}
 
 /** Called when the reader reaches the end of a chapter after a real read. */
 export function markChapterRead(chapterId: string): void {
@@ -394,25 +363,18 @@ export function markChapterRead(chapterId: string): void {
   const multiplier = comboMultiplier(combo.count);
   const firstStar = current.stars[chapterId] ? 0 : 1;
   const chaptersRead = current.chaptersRead[chapterId] ? current.chaptersRead : { ...current.chaptersRead, [chapterId]: new Date().toISOString() };
-  // Reading ticks the plan for you; plan XP comes from reading, not from checkboxes.
-  const planDays = planDaysCompleted(current, chaptersRead);
   mutate(
     (state) => {
       const day = state.days[today] ?? { xp: 0, by: {}, chapters: [] };
-      const planId = state.activePlan;
       return {
         ...state,
         combo,
         stars: firstStar ? { ...state.stars, [chapterId]: 1 } : state.stars,
         chaptersRead,
-        planProgress:
-          planId && planDays.length > 0
-            ? { ...state.planProgress, [planId]: [...new Set([...(state.planProgress[planId] ?? []), ...planDays])].sort((a, b) => a - b) }
-            : state.planProgress,
         days: { ...state.days, [today]: { ...day, chapters: [...day.chapters, chapterId] } },
       };
     },
-    ["chapter", ...Array<Action>(planDays.length).fill("plan-day")],
+    ["chapter"],
     null,
     { chapterMultiplier: multiplier, oil: firstStar * OIL_PER_STAR, note: multiplier > 1 ? `Combo x${multiplier}` : undefined, sound: "page" },
   );
@@ -579,30 +541,12 @@ export function answerQuiz(quizDay: string, answer: string, correct: boolean, or
   if (entry) write({ ...saved, quiz: { ...saved.quiz, [quizDay]: { ...entry, xp: gained } } });
 }
 
-// ── Reading position, translation & plans ─────────────────────────
+// ── Reading position & translation ───────────────────────────────
 
 export function setLastRead(translation: string, chapterId: string): void {
   const current = getSnapshot();
   if (current.lastRead?.chapterId === chapterId && current.lastRead.translation === translation) return;
   write({ ...current, lastRead: { translation, chapterId }, translation });
-}
-
-export function setActivePlan(planId: string | null): void {
-  write({ ...getSnapshot(), activePlan: planId });
-}
-
-/** Manual tick (e.g. read on paper). No XP — reading in Selah ticks days and pays; the paper-Bible check-in covers paper. */
-export function togglePlanDay(planId: string, day: number, origin: Origin | null = null): void {
-  mutate(
-    (state) => {
-      const done = new Set(state.planProgress[planId] ?? []);
-      if (done.has(day)) done.delete(day);
-      else done.add(day);
-      return { ...state, planProgress: { ...state.planProgress, [planId]: [...done].sort((a, b) => a - b) } };
-    },
-    [],
-    origin,
-  );
 }
 
 // ── Export / import ───────────────────────────────────────────────

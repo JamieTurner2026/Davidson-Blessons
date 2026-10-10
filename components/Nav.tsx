@@ -55,12 +55,6 @@ export function Nav(): ReactNode {
         <NavLink href="/memory" match="/memory">
           Memory{dueCount > 0 ? ` · ${dueCount}` : ""}
         </NavLink>
-        <NavLink href="/plans" match="/plans">
-          Plans
-        </NavLink>
-        <NavLink href="/notes" match="/notes">
-          Notes
-        </NavLink>
         <SoundToggle />
         <Link href="/workshop" className="nav-streak nav-oil" aria-label={`${state.oil} oil — open the Workshop`} title="Oil — spend it in the Workshop">
           <OilJar />

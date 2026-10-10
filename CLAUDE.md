@@ -16,7 +16,7 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 - **`API_BIBLE_KEY` is server-only.** It is read only in `lib/apibible.ts` (`import "server-only"`). Never prefix it `NEXT_PUBLIC_`, never import `lib/apibible.ts` from a client component. After builds, `grep -r "$API_BIBLE_KEY" .next` must find nothing.
 - **Allowlist only.** New translations go in `lib/bibles.ts`; chapter/verse IDs are validated against the static canon in `lib/canon.ts` before any API call.
 - **Licensing.** Every rendered scripture response must (1) show its `copyright` string and (2) report its `fumsToken` via `<Fums token=… />` (API.Bible FUMS v3). NIV is copyrighted — keep both in place.
-- **Personal data stays local.** Highlights/notes/plans live in localStorage (`lib/study-store.ts`, key `selah:v1`, Zod-validated). No accounts, no DB in v1.
+- **Personal data stays local.** Highlights, memory verses and game progress live in localStorage (`lib/study-store.ts`, key `selah:v1`, Zod-validated). No accounts, no DB in v1.
 - **Woset guardrails:** one marigold fill per viewport, no shadows/gradients, pills (30px) for controls, square art, 15/25/95 type. Approved exceptions: scripture body 19px/1.6; playful GSAP motion (always behind reduced-motion checks).
 - **Gamification ethos:** encourage, never punish (rest days, paper-Bible check-in, no leaderboards). Any new XP source needs a daily cap in `XP_RULES`.
 - **Don't name CSS classes after Tailwind utilities** (`.ring` bit us).
@@ -24,9 +24,9 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 
 ## Map
 - `lib/apibible.ts` — fetch + Zod parse + normalise API.Bible JSON into `Block[]` (headings / cross-refs / verse segments)
-- `app/read/[translation]/[chapter]` — reader (server) → `components/Reader.tsx` (client: select, highlight, note, copy)
+- `app/read/[translation]/[chapter]` — reader (server) → `components/Reader.tsx` (client: select, highlight, memorize, copy)
 - `app/api/search/route.ts` — the only public endpoint (search proxy)
-- `data/` — divisions (home grid), reading plans, verse-of-the-day pool, quiz pool, badges
+- `data/` — divisions (home grid), verse-of-the-day pool, quiz pool, badges
 - `lib/game.ts` — pure game rules (XP/caps, levels, streak with rest days, Leitner); `lib/study-store.ts` `mutate()` is the only write path that awards XP + queues celebrations
 - `components/motion/` — GSAP primitives (Reveal, SplitHeadline, CountUp, ProgressFill, Lamp) + `Celebrations` (toasts, modal, confetti) mounted in the layout
 - Pages: `/map` (journey trail + pilgrim), `/lesson/[t]/[chapter]` (passage cards + rounds), `/play` (trivia, match, order, lightning, checkpoints), `/workshop` (oil shop), `/journey`, `/library`, `/memory`

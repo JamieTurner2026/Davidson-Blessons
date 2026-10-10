@@ -9,7 +9,6 @@ import { soundEnabled } from "@/lib/study-store";
 const VOLUME: Record<SoundName, number> = {
   chime: 0.35,
   page: 0.45,
-  quill: 0.4,
   bell: 0.3,
   tick: 0.35,
   thud: 0.3,
