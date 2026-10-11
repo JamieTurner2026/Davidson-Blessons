@@ -64,7 +64,20 @@ async function fetchStatic(path, signal) {
   }
 }
 
-const slugOf = (book) => book.toLowerCase().replace(/ /g, "-");
+export const slugOf = (book) => book.toLowerCase().replace(/ /g, "-");
+
+// Which chapters have pre-written notes, as a Set of "slug/chapter" (e.g.
+// "1-samuel/17"). Written by bridge/publish_static.py. Resolves to null when
+// the list isn't available (local dev), meaning "unknown", not "none".
+let notesIndexPromise = null;
+export function getNotesIndex() {
+  if (!notesIndexPromise) {
+    notesIndexPromise = fetchStatic("/data/notes/index.json").then((data) =>
+      Array.isArray(data?.chapters) ? new Set(data.chapters) : null
+    );
+  }
+  return notesIndexPromise;
+}
 
 // onPartial(body) is called once, as soon as the bridge returns the Scripture
 // (which it reads locally, instantly) while the study notes are still loading.

@@ -5,3 +5,4 @@ dist
 # Unused YouVersion experiment — would otherwise deploy as live serverless functions.
 api
 lib/youversion.js
+bridge

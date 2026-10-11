@@ -1,9 +1,103 @@
-import React, { useState, useEffect } from "react";
-import { Flame, ChevronLeft, Check, BookOpen, Sparkles, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Flame, ChevronLeft, Check, BookOpen, Sparkles, Loader2, PenLine } from "lucide-react";
 import { BOOKS } from "../lib/usfmBooks.js";
-import { getChapter, EDITION } from "./services/notebookLmService.js";
+import { getChapter, getNotesIndex, slugOf, EDITION } from "./services/notebookLmService.js";
 
 const COMPLETED_KEY = "davison-blesson-completed-v1";
+const JOURNAL_KEY = "davison-blesson-journal-v1";
+const TOTAL_CHAPTERS = BOOKS.reduce((sum, b) => sum + b.chapters, 0);
+
+function loadJournal() {
+  try {
+    return JSON.parse(localStorage.getItem(JOURNAL_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveJournalEntry(key, text) {
+  try {
+    const all = loadJournal();
+    if (text.trim()) all[key] = text;
+    else delete all[key];
+    localStorage.setItem(JOURNAL_KEY, JSON.stringify(all));
+    return true;
+  } catch {
+    return false; // storage unavailable — the box still works, it just won't persist
+  }
+}
+
+// Private reflection box for one chapter, autosaved to this browser only
+// (carried over from the original Lamplight Bible prototype).
+function Journal({ entryKey }) {
+  const [text, setText] = useState(() => loadJournal()[entryKey] || "");
+  const [status, setStatus] = useState("");
+  const timer = useRef(null);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  function onChange(e) {
+    const value = e.target.value;
+    setText(value);
+    setStatus("");
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      setStatus(saveJournalEntry(entryKey, value) ? "Saved" : "Couldn't save in this browser");
+    }, 500);
+  }
+
+  return (
+    <div className="mb-6">
+      <label
+        htmlFor="journal"
+        className="text-sm font-semibold text-[#C9A34E] mb-2 flex items-center gap-1.5"
+      >
+        <PenLine size={14} /> Your Reflection
+      </label>
+      <textarea
+        id="journal"
+        value={text}
+        onChange={onChange}
+        rows={5}
+        placeholder="Write your answer to the reflection question, or anything this chapter stirred up. It stays private, saved only in this browser."
+        className="w-full rounded-xl bg-white/5 border border-white/10 focus:border-[#C9A34E]/60 focus:outline-none p-3 text-[15px] leading-relaxed text-[#EDE6D6] placeholder:text-[#EDE6D6]/30"
+      />
+      <p className="text-[11px] text-[#EDE6D6]/40 h-4 mt-1">{status}</p>
+    </div>
+  );
+}
+
+// Candle that fills as chapters are learned (from the original prototype).
+function ProgressCandle({ learned, notesReady }) {
+  const share = learned / TOTAL_CHAPTERS;
+  return (
+    <div className="flex items-end gap-4 mb-8">
+      <div className="flex flex-col items-center">
+        <Flame
+          size={18}
+          strokeWidth={1.5}
+          className={"text-[#C9A34E] " + (learned ? "flicker" : "")}
+          style={{ opacity: 0.25 + share * 0.75 }}
+        />
+        <div className="w-3 h-12 rounded-sm bg-white/10 overflow-hidden flex items-end mt-0.5">
+          <div className="w-full bg-[#C9A34E]" style={{ height: `${Math.max(share * 100, learned ? 4 : 0)}%` }} />
+        </div>
+      </div>
+      <div>
+        <p className="text-sm">
+          <span className="font-semibold text-[#C9A34E]">{learned.toLocaleString()}</span> of{" "}
+          {TOTAL_CHAPTERS.toLocaleString()} chapters learned
+        </p>
+        {notesReady !== null && (
+          <p className="text-[11px] text-[#EDE6D6]/40">
+            Study notes written so far: {notesReady.toLocaleString()} of {TOTAL_CHAPTERS.toLocaleString()}{" "}
+            chapters (gold border)
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function loadCompleted() {
   try {
@@ -99,9 +193,17 @@ export default function App() {
   const [chapter, setChapter] = useState(null);
   const [completed, setCompleted] = useState(loadCompleted);
   const [chapterState, setChapterState] = useState({ status: "idle" }); // idle | loading | loaded | error
+  const [notesIndex, setNotesIndex] = useState(null); // Set of "slug/ch", or null if unknown
 
   const books = BOOKS.filter((b) => b.testament === testament);
   const key = book && chapter ? `${book.name}:${chapter}` : null;
+  const hasNotes = (b, n) => Boolean(notesIndex?.has(`${slugOf(b.name)}/${n}`));
+  const learnedIn = (b) =>
+    Array.from({ length: b.chapters }, (_, i) => i + 1).filter((n) => completed.has(`${b.name}:${n}`)).length;
+
+  useEffect(() => {
+    getNotesIndex().then(setNotesIndex);
+  }, []);
 
   useEffect(() => {
     if (!book || !chapter) return;
@@ -125,9 +227,10 @@ export default function App() {
     return () => controller.abort();
   }, [book, chapter]);
 
-  function markCompleted() {
+  function toggleCompleted() {
     const next = new Set(completed);
-    next.add(key);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
     setCompleted(next);
     saveCompleted(next);
   }
@@ -168,6 +271,7 @@ export default function App() {
 
         {!book && (
           <>
+            <ProgressCandle learned={completed.size} notesReady={notesIndex ? notesIndex.size : null} />
             <div className="flex gap-2 mb-6">
               {[["OT", "Old Testament"], ["NT", "New Testament"]].map(([id, label]) => (
                 <button
@@ -185,18 +289,23 @@ export default function App() {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {books.map((b) => (
-                <button
-                  key={b.name}
-                  onClick={() => setBook(b)}
-                  className="text-left rounded-xl border border-white/10 hover:border-[#C9A34E]/60 px-3 py-3 transition-colors"
-                >
-                  <span className="block text-sm serif-display">{b.name}</span>
-                  <span className="block text-[11px] text-[#EDE6D6]/40">
-                    {b.chapters} {b.chapters === 1 ? "chapter" : "chapters"}
-                  </span>
-                </button>
-              ))}
+              {books.map((b) => {
+                const learned = learnedIn(b);
+                return (
+                  <button
+                    key={b.name}
+                    onClick={() => setBook(b)}
+                    className="text-left rounded-xl border border-white/10 hover:border-[#C9A34E]/60 px-3 py-3 transition-colors"
+                  >
+                    <span className="block text-sm serif-display">{b.name}</span>
+                    <span className="block text-[11px] text-[#EDE6D6]/40">
+                      {learned
+                        ? `${learned} of ${b.chapters} learned`
+                        : `${b.chapters} ${b.chapters === 1 ? "chapter" : "chapters"}`}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -209,19 +318,30 @@ export default function App() {
             >
               <ChevronLeft size={16} /> All books
             </button>
-            <h2 className="serif-display text-3xl mb-5">{book.name}</h2>
+            <span className="uppercase tracking-[0.2em] text-xs text-[#C9A34E]/80">
+              {book.testament === "OT" ? "Old Testament" : "New Testament"}
+            </span>
+            <h2 className="serif-display text-3xl mt-1 mb-2">{book.name}</h2>
+            <p className="text-[11px] text-[#EDE6D6]/40 mb-5">
+              {learnedIn(book)} of {book.chapters} learned
+              {notesIndex && " · gold border = study notes ready"}
+            </p>
             <div className="grid grid-cols-6 gap-2">
               {Array.from({ length: book.chapters }, (_, i) => i + 1).map((n) => {
                 const done = completed.has(`${book.name}:${n}`);
+                const ready = hasNotes(book, n);
                 return (
                   <button
                     key={n}
                     onClick={() => setChapter(n)}
+                    aria-label={`Chapter ${n}${done ? ", learned" : ""}${ready ? ", study notes ready" : ""}`}
                     className={
                       "aspect-square rounded-full flex items-center justify-center text-sm border transition-colors " +
                       (done
                         ? "bg-[#C9A34E] border-[#C9A34E] text-[#12162a] font-semibold glow"
-                        : "border-white/20 text-[#EDE6D6]/70 hover:border-[#C9A34E]/70")
+                        : ready
+                          ? "border-[#C9A34E]/70 text-[#EDE6D6]/90 hover:border-[#C9A34E]"
+                          : "border-white/20 text-[#EDE6D6]/70 hover:border-[#C9A34E]/70")
                     }
                   >
                     {done ? <Check size={14} strokeWidth={3} /> : n}
@@ -336,17 +456,23 @@ export default function App() {
                   )}
                 </div>
 
+                <Journal key={key} entryKey={key} />
+
                 {!completed.has(key) ? (
                   <button
-                    onClick={markCompleted}
+                    onClick={toggleCompleted}
                     className="w-full rounded-full bg-[#C9A34E] text-[#12162a] font-semibold py-3 text-sm tracking-wide mb-4 hover:brightness-105 transition"
                   >
                     Mark this chapter learned
                   </button>
                 ) : (
-                  <div className="w-full rounded-full bg-white/10 text-[#C9A34E] font-medium py-3 text-sm text-center mb-4 flex items-center justify-center gap-2">
-                    <Check size={15} /> Learned
-                  </div>
+                  <button
+                    onClick={toggleCompleted}
+                    title="Tap to un-mark"
+                    className="w-full rounded-full bg-white/10 text-[#C9A34E] font-medium py-3 text-sm mb-4 flex items-center justify-center gap-2 hover:bg-white/15 transition"
+                  >
+                    <Check size={15} /> Learned <span className="text-[11px] text-[#EDE6D6]/40">(tap to undo)</span>
+                  </button>
                 )}
               </>
             )}
@@ -357,6 +483,7 @@ export default function App() {
           Scripture quotations taken from The Holy Bible, New International Version&reg; NIV&reg;.
           Copyright &copy; 1973, 1978, 1984, 2011 by Biblica, Inc.&trade; Used by permission.
           All rights reserved worldwide. Learning notes are AI-generated study aids, not Scripture.
+          Your reflections and progress are stored only in this browser.
         </p>
       </div>
     </div>
