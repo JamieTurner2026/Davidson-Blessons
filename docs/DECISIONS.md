@@ -117,6 +117,5 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - **Gotcha:** with PKCE, an email link only works in the browser that requested it. The UI says so.
 - **Keep-alive:** a daily Vercel cron calls `/api/keepalive` → `ping()`, so the free project doesn't pause after 7 idle days.
 - **Backup file kept** as a quieter option under "Your account".
-- **Pending (Mike):**
-  - The four dashboard steps in `docs/RUNBOOKS.md`.
-  - The conflict rule in `resolveMemoryCard` (learning-mode contribution; the default is higher box, then earlier due date).
+- **2026-10-12:** Vercel env vars set (Production + Development). `resolveMemoryCard`: the copy due sooner wins, so a missed verse is never hidden; tie goes to the higher box. `namesItsBook`: case-sensitive whole word, numbered books match on the bare name, plus Psalm and Solomon.
+- **Pending (Mike):** Supabase URL config, Google OAuth, Resend SMTP (`docs/RUNBOOKS.md` steps 1–3).

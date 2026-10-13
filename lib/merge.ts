@@ -48,10 +48,10 @@ export function mergeDays(a: Record<string, DayLog>, b: Record<string, DayLog>):
  *   - Whatever you pick must give the same answer whichever argument is local.
  */
 export function resolveMemoryCard(local: MemoryCard, remote: MemoryCard): MemoryCard {
-  // TODO(Mike Norman, 2026-10-10): choose the conflict rule (3–6 lines). Until then the
-  // card with the higher box wins, with the earlier due date as the tie-break.
-  if (local.box !== remote.box) return local.box > remote.box ? local : remote;
-  return local.due <= remote.due ? local : remote;
+  // The copy that needs review sooner wins, so a verse missed on one device is never
+  // hidden by an older, better result from another. Tie: the better-known copy.
+  if (local.due !== remote.due) return local.due < remote.due ? local : remote;
+  return local.box >= remote.box ? local : remote;
 }
 
 function sumDays(days: Record<string, DayLog>): number {
