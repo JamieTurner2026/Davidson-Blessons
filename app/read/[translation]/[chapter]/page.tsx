@@ -5,8 +5,11 @@ import type { ReactNode } from "react";
 
 import { ChapterPicker } from "@/components/ChapterPicker";
 import { Fums } from "@/components/Fums";
+import { Journal } from "@/components/Journal";
 import { Reader } from "@/components/Reader";
+import { StudyNotes } from "@/components/StudyNotes";
 import { ApiBibleError, getChapter } from "@/lib/apibible";
+import { getStudyNotes } from "@/lib/notes";
 import { TRANSLATIONS, getTranslation } from "@/lib/bibles";
 import { adjacentChapter, chapterLabel, parseChapterId, type ChapterRef } from "@/lib/canon";
 import type { Chapter } from "@/lib/schemas";
@@ -63,6 +66,8 @@ export default async function ReadPage({ params }: Params): Promise<ReactNode> {
         : "We couldn't load this chapter just now. Please try again in a moment.";
   }
 
+  const notes = await getStudyNotes(place);
+
   return (
     <div className="ws-stack reader">
       <div className="reader__toolbar">
@@ -91,6 +96,19 @@ export default async function ReadPage({ params }: Params): Promise<ReactNode> {
           {failure}
         </p>
       )}
+
+      <section className="study" aria-label="Study notes">
+        <h2 className="ws-label">Learning notes</h2>
+        {notes ? (
+          <StudyNotes text={notes} />
+        ) : (
+          <p className="ws-muted">Study notes for this chapter are still being written.</p>
+        )}
+        <Journal key={chapterId} chapterId={chapterId} />
+        <p className="ws-muted" style={{ fontSize: 12 }}>
+          Learning notes are AI-generated study aids, not Scripture.
+        </p>
+      </section>
 
       <ChapterNav translation={translation.slug} place={place} />
 

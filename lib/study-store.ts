@@ -39,6 +39,7 @@ import {
 const STORAGE_KEY = "selah:v1";
 
 const MEMORY_TEXT_MAX = 2000;
+const JOURNAL_TEXT_MAX = 10000;
 
 const memorySchema = z.object({
   reference: z.string(),
@@ -84,6 +85,8 @@ const studySchema = z.object({
   // ── v3.1: games ──
   games: z.record(z.string(), z.object({ best: z.number().int().min(0), plays: z.number().int().min(0) })).default({}),
   checkpoints: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
+  // ── v4: journal (from Davidson Blessons) ── one private reflection per chapter id.
+  journal: z.record(z.string(), z.object({ text: z.string().max(JOURNAL_TEXT_MAX), updatedAt: z.string() })).default({}),
 });
 
 export type StudyState = z.infer<typeof studySchema>;
@@ -568,6 +571,16 @@ export function setLastRead(translation: string, chapterId: string): void {
 }
 
 // ── Export / import ───────────────────────────────────────────────
+
+/** Saves (or, when blank, clears) the private reflection for a chapter. No XP: writing is never farmed. */
+export function setJournal(chapterId: string, text: string): void {
+  mutate((state) => {
+    const journal = { ...state.journal };
+    if (text.trim()) journal[chapterId] = { text: text.slice(0, JOURNAL_TEXT_MAX), updatedAt: new Date().toISOString() };
+    else delete journal[chapterId];
+    return { ...state, journal };
+  });
+}
 
 export function exportStudy(): string {
   return JSON.stringify(getSnapshot(), null, 2);

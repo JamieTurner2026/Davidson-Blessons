@@ -119,3 +119,10 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - **Backup file kept** as a quieter option under "Your account".
 - **2026-10-12:** Vercel env vars set (Production + Development). `resolveMemoryCard`: the copy due sooner wins, so a missed verse is never hidden; tie goes to the higher box. `namesItsBook`: case-sensitive whole word, numbered books match on the bare name, plus Psalm and Solomon.
 - **Pending (Mike):** Supabase URL config, Google OAuth, Resend SMTP (`docs/RUNBOOKS.md` steps 1–3).
+
+## 2026-10-19 — Selah and Davidson Blessons combined
+
+- **One repo, one app.** Selah (Next.js) was merged into `JamieTurner2026/Davidson-Blessons` with both histories kept. The Vite prototype (`src/`, `api/` YouVersion experiment, Tailwind v3 config) was removed; it stays in git history. Its README/bridge docs are superseded by the Selah ones.
+- **Ported from Davidson:** NotebookLM study notes on every chapter page, and the private per-chapter reflection journal. Notes are static files read at request time (`outputFileTracingIncludes` ships them to Vercel); a missing file means "still being written". The old live-write fallback and the public/private editions are gone — scripture now comes from API.Bible, so only notes are exported.
+- **Journal** syncs with the account like the rest of the state: `journal` in `selah:v1`, merge keeps the most recently edited text per chapter. It awards no XP, so there is nothing to farm.
+- **Not ported:** Davidson's "mark learned" button and candle (Selah's chapters-read, XP and journey map already cover that) and its separate `davison-blesson-*` localStorage keys (no migration of existing journal entries).

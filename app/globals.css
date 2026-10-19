@@ -541,3 +541,14 @@ a.tile:hover { border-color: var(--ws-accent); }
 .sales__promises .tile { min-height: 0; }
 .sales__cta { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; padding-bottom: 30px; }
 .sales__hero .ws-display { font-size: clamp(36px, 9vw + 4px, 95px); }
+
+/* ── Study notes + journal (from Davidson Blessons) ─────────────── */
+.study { max-width: 640px; margin-inline: auto; width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.study-notes { font-size: 15px; line-height: 1.6; }
+.study-notes h3 { font-size: 15px; font-weight: 600; margin: 16px 0 6px; }
+.study-notes p, .study-notes ul { margin: 0 0 12px; }
+.study-notes ul { padding-left: 20px; }
+.journal { display: flex; flex-direction: column; gap: 6px; }
+.journal__box { font: inherit; letter-spacing: inherit; color: var(--ws-fg); background: none; border: var(--border-hairline); border-radius: 16px; padding: 12px 14px; resize: vertical; width: 100%; }
+.journal__box:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
+.journal__status { min-height: 18px; margin: 0; font-size: 12px; }

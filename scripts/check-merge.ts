@@ -22,6 +22,7 @@ const phone = state({
   memory: {
     "JHN.3.16": { reference: "John 3:16", text: "For God so loved", translation: "bsb", verseIds: ["JHN.3.16"], box: 3, due: "2026-10-12", addedAt: "2026-10-09T11:00:00Z" },
   },
+  journal: { "JHN.1": { text: "phone, older", updatedAt: "2026-10-08T10:00:00Z" }, "JHN.2": { text: "phone only", updatedAt: "2026-10-09T10:00:00Z" } },
   owned: ["lamp-brass"],
   translation: "niv",
 });
@@ -40,6 +41,7 @@ const laptop = state({
     "JHN.3.16": { reference: "John 3:16", text: "For God so loved", translation: "bsb", verseIds: ["JHN.3.16"], box: 1, due: "2026-10-10", addedAt: "2026-10-09T08:00:00Z" },
     "PSA.23.1": { reference: "Psalm 23:1", text: "The LORD is my shepherd", translation: "bsb", verseIds: ["PSA.23.1"], box: 1, due: "2026-10-10", addedAt: "2026-10-10T09:00:00Z" },
   },
+  journal: { "JHN.1": { text: "laptop, newer", updatedAt: "2026-10-10T10:00:00Z" } },
   owned: ["paper-linen"],
   translation: "bsb",
 });
@@ -59,6 +61,7 @@ expect("badges from both devices", Object.keys(merged.badges).sort(), ["first-li
 expect("a shared day keeps the larger XP and all chapters", merged.days["2026-10-09"], { xp: 20, by: { chapter: 20, highlight: 5 }, chapters: ["GEN.1", "JHN.2", "JHN.3"] });
 expect("XP equals the sum of merged days", merged.xp, 10 + 20 + 10);
 expect("memory verses from both devices", Object.keys(merged.memory).sort(), ["JHN.3.16", "PSA.23.1"]);
+expect("journal: newest edit wins, others kept", merged.journal, { "JHN.1": { text: "laptop, newer", updatedAt: "2026-10-10T10:00:00Z" }, "JHN.2": { text: "phone only", updatedAt: "2026-10-09T10:00:00Z" } });
 expect("cosmetics owned on either device", merged.owned, ["lamp-brass", "paper-linen"]);
 expect("this device keeps its translation", merged.translation, "niv");
 expect("idempotent: merging again changes nothing", stableStringify(mergeStudy(phone, merged)), stableStringify(merged));

@@ -69,6 +69,8 @@ export function mergeStudy(local: StudyState, remote: StudyState): StudyState {
     searchHunts: unionEarliest(local.searchHunts, remote.searchHunts),
     highlights: unionWith(local.highlights, remote.highlights, (left, right) => (left.createdAt <= right.createdAt ? left : right)),
     notes: unionWith(local.notes, remote.notes, (left, right) => (left.updatedAt >= right.updatedAt ? left : right)),
+    // The most recently edited copy of each chapter's reflection wins.
+    journal: unionWith(local.journal, remote.journal, (left, right) => (left.updatedAt >= right.updatedAt ? left : right)),
     quiz: unionWith(local.quiz, remote.quiz, (left, right) => (left.answer <= right.answer ? left : right)),
     owned: [...new Set([...local.owned, ...remote.owned])].sort(),
     memory: unionWith(local.memory, remote.memory, resolveMemoryCard),
