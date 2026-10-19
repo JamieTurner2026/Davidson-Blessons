@@ -1,8 +1,8 @@
+.env*
+!.env.example
+.next
 node_modules
-dist
-.env.local
-.env*.local
-# Unused YouVersion experiment — would otherwise deploy as live serverless functions.
-api
-lib/youversion.js
+.git
+
+# Python bridge (runs on the owner PC, not on Vercel)
 bridge
