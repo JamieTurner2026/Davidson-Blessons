@@ -6,7 +6,7 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 (`~/.claude/skills/woset`). Scripture comes live from **API.Bible**; illustrations were generated with **Magnific**.
 
 ## Links
-- Repo: https://github.com/JamieTurner2026/Davidson-Blessons (home of the combined app; Selah's old repo marleevison/selah is the source of the code). Live: https://selah-rho-sable.vercel.app (sales page: `/welcome`) and https://davidson-blessons.vercel.app (check the Vercel project's Git link before relying on auto-deploy).
+- Repo: https://github.com/JamieTurner2026/Davidson-Blessons (home of the combined app; Selah's old repo marleevison/selah is the source of the code). Live: https://davidson-blessons.vercel.app (sales page: `/welcome`; production follows `main`). Branch preview: https://davison-blesson-git-claude-lov-f91044-jamieturner2026s-projects.vercel.app. https://selah-rho-sable.vercel.app is the legacy Selah site, not this app's home.
 
 ## Commands
 - `npm run dev` — dev server (preview config `selah` in `~/Documents/Claude/.claude/launch.json`, port 3410)
