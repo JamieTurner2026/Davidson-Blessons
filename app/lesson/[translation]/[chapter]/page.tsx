@@ -30,7 +30,8 @@ export default async function LessonPage({ params }: Params): Promise<ReactNode>
   let chapter: Chapter | null = null;
   try {
     chapter = await getChapter(translation, chapterId);
-  } catch {
+  } catch (error) {
+    console.error(`Lesson ${translation.slug}/${chapterId} failed to load:`, error instanceof Error ? error.message : error);
     chapter = null;
   }
 

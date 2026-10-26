@@ -60,6 +60,7 @@ export default async function ReadPage({ params }: Params): Promise<ReactNode> {
   try {
     chapter = await getChapter(translation, chapterId);
   } catch (error) {
+    console.error(`Chapter ${translation.slug}/${chapterId} failed to load:`, error instanceof Error ? error.message : error);
     failure =
       error instanceof ApiBibleError && error.status === 404
         ? `${translation.abbreviation} doesn't include ${chapterLabel(place)}.`
