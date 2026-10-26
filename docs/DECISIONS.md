@@ -126,3 +126,8 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - **Ported from Davidson:** NotebookLM study notes on every chapter page, and the private per-chapter reflection journal. Notes are static files read at request time (`outputFileTracingIncludes` ships them to Vercel); a missing file means "still being written". The old live-write fallback and the public/private editions are gone — scripture now comes from API.Bible, so only notes are exported.
 - **Journal** syncs with the account like the rest of the state: `journal` in `selah:v1`, merge keeps the most recently edited text per chapter. It awards no XP, so there is nothing to farm.
 - **Not ported:** Davidson's "mark learned" button and candle (Selah's chapters-read, XP and journey map already cover that) and its separate `davison-blesson-*` localStorage keys (no migration of existing journal entries).
+
+## 2026-10-26 — Rebrand to Davidson Blessons, progress and notes markers
+- User-facing name is now **Davidson Blessons** (nav, footer, titles, welcome page, README, package name).
+- **Deliberately unchanged:** localStorage key `selah:v1`, auth storage key `selah:auth`, the Supabase project/table. Renaming them would wipe saved progress and sign-ins.
+- Ported from the old Vite app: chapters-read progress on `/journey` (`components/ProgressCandle.tsx`, reuses the reading-driven `chaptersRead` instead of a second "learned" key) and an outlined chapter button where study notes exist (`getNotesIndex` in `lib/notes.ts`).

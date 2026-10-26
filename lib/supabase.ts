@@ -13,7 +13,7 @@ const envSchema = z.object({
 
 let client: SupabaseClient | null | undefined;
 
-/** The shared client, or null on the server or when accounts aren't configured (Selah still works signed out). */
+/** The shared client, or null on the server or when accounts aren't configured (the app still works signed out). */
 export function supabase(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
   if (client !== undefined) return client;

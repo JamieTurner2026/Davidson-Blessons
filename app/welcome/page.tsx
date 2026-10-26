@@ -7,7 +7,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { SplitHeadline } from "@/components/motion/SplitHeadline";
 
 export const metadata: Metadata = {
-  title: "Selah — a Bible journey you'll want to take every day",
+  title: "Davidson Blessons — a Bible journey you'll want to take every day",
   description:
     "Read Scripture as a journey: bite-size lessons, games, memory verses, gentle streaks and a hand-drawn pilgrim who grows with you. No account needed.",
 };
@@ -48,10 +48,10 @@ export default function WelcomePage(): ReactNode {
   return (
     <div className="ws-stack sales">
       <section className="sales__hero">
-        <span className="ws-muted">Selah — Bible study, reimagined as a journey</span>
+        <span className="ws-muted">Davidson Blessons — Bible study, reimagined as a journey</span>
         <SplitHeadline lines={["Open the Word.", "Walk the road."]} />
         <p className="sales__lede">
-          Selah turns daily Bible reading into a gentle, hand-drawn adventure — lessons, games and a pilgrim who walks every step with
+          Davidson Blessons turns daily Bible reading into a gentle, hand-drawn adventure — lessons, games and a pilgrim who walks every step with
           you.
         </p>
         <div className="ws-pills">

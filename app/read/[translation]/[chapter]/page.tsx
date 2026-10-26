@@ -9,7 +9,7 @@ import { Journal } from "@/components/Journal";
 import { Reader } from "@/components/Reader";
 import { StudyNotes } from "@/components/StudyNotes";
 import { ApiBibleError, getChapter } from "@/lib/apibible";
-import { getStudyNotes } from "@/lib/notes";
+import { getNotesIndex, getStudyNotes } from "@/lib/notes";
 import { TRANSLATIONS, getTranslation } from "@/lib/bibles";
 import { adjacentChapter, chapterLabel, parseChapterId, type ChapterRef } from "@/lib/canon";
 import type { Chapter } from "@/lib/schemas";
@@ -66,12 +66,12 @@ export default async function ReadPage({ params }: Params): Promise<ReactNode> {
         : "We couldn't load this chapter just now. Please try again in a moment.";
   }
 
-  const notes = await getStudyNotes(place);
+  const [notes, notesReady] = await Promise.all([getStudyNotes(place), getNotesIndex()]);
 
   return (
     <div className="ws-stack reader">
       <div className="reader__toolbar">
-        <ChapterPicker translation={translation.slug} bookId={place.bookId} chapter={place.chapter} label={chapterLabel(place)} />
+        <ChapterPicker translation={translation.slug} bookId={place.bookId} chapter={place.chapter} label={chapterLabel(place)} notesReady={notesReady} />
         <div className="ws-pills" role="group" aria-label="Translation">
           {TRANSLATIONS.map((option) => (
             <Link

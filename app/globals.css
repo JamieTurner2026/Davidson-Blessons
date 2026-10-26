@@ -224,6 +224,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoratio
 .picker__book:hover { background: var(--ws-accent-wash); }
 .picker__book[aria-pressed="true"] { font-weight: var(--font-weight-medium); text-decoration: underline; text-underline-offset: 3px; }
 .picker__chapters { display: flex; flex-wrap: wrap; gap: 6px; }
+.ws-pill.has-notes { border-color: var(--ws-accent); border-width: 2px; }
 
 .footer { padding-block: 30px; color: var(--ws-muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; }
 

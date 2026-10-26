@@ -1,4 +1,4 @@
-# Selah
+# Davidson Blessons
 
 A quiet Bible study web app: read in six translations, search, highlight, and play short lessons on each chapter along a journey trail.
 

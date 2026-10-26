@@ -1,4 +1,4 @@
-// Selah's game rules — pure functions only, so they can be reasoned about and tested
+// Game rules — pure functions only, so they can be reasoned about and tested
 // without React or storage. Principle: encourage, never punish.
 
 import { addDays, dayNumber, fromDayNumber, weekday, type DayKey } from "@/lib/day";

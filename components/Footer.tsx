@@ -4,7 +4,7 @@ export function Footer(): ReactNode {
   return (
     <footer className="footer">
       <span>
-        Selah — pause and reflect. <a href="/welcome">About Selah</a>
+        Davidson Blessons — pause and reflect. <a href="/welcome">About Davidson Blessons</a>
       </span>
       <span>
         Scripture via{" "}

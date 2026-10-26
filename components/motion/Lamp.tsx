@@ -97,7 +97,7 @@ const DESIGNS: Record<string, Design> = {
 };
 
 /**
- * Selah's streak symbol — the equipped lamp from the Workshop. Flames flicker while lit;
+ * The app's streak symbol — the equipped lamp from the Workshop. Flames flicker while lit;
  * unlit, it's a quiet outline waiting for today's reading.
  */
 export function Lamp({ lit, glow = 0.4, size = 44, variant }: Props): ReactNode {

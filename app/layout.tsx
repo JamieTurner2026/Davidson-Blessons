@@ -16,7 +16,7 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Selah — Bible study", template: "%s · Selah" },
+  title: { default: "Davidson Blessons — Bible study", template: "%s · Davidson Blessons" },
   description: "Read Scripture, play its lessons and walk the trail, one stop at a time.",
 };
 

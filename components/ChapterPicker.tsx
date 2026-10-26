@@ -11,6 +11,8 @@ interface Props {
   bookId: string;
   chapter: number;
   label: string;
+  /** Chapter ids that have written study notes. */
+  notesReady?: ReadonlyArray<string>;
 }
 
 function BookList({ books, chosen, onChoose }: { books: ReadonlyArray<Book>; chosen: string; onChoose: (id: string) => void }): ReactNode {
@@ -31,11 +33,12 @@ function BookList({ books, chosen, onChoose }: { books: ReadonlyArray<Book>; cho
   );
 }
 
-export function ChapterPicker({ translation, bookId, chapter, label }: Props): ReactNode {
+export function ChapterPicker({ translation, bookId, chapter, label, notesReady = [] }: Props): ReactNode {
   const { chaptersRead } = useStudy();
   const [open, setOpen] = useState(false);
   const [chosenBook, setChosenBook] = useState(bookId);
   const book = getBook(chosenBook);
+  const withNotes = new Set(notesReady);
 
   return (
     <>
@@ -57,9 +60,9 @@ export function ChapterPicker({ translation, bookId, chapter, label }: Props): R
                   <Link
                     key={number}
                     href={`/read/${translation}/${book.id}.${number}`}
-                    className={chaptersRead[`${book.id}.${number}`] ? "ws-pill ws-pill--sm is-read" : "ws-pill ws-pill--sm"}
+                    className={["ws-pill ws-pill--sm", chaptersRead[`${book.id}.${number}`] && "is-read", withNotes.has(`${book.id}.${number}`) && "has-notes"].filter(Boolean).join(" ")}
                     aria-current={book.id === bookId && number === chapter ? "page" : undefined}
-                    title={chaptersRead[`${book.id}.${number}`] ? "Read" : undefined}
+                    title={[chaptersRead[`${book.id}.${number}`] && "Read", withNotes.has(`${book.id}.${number}`) && "Study notes"].filter(Boolean).join(" · ") || undefined}
                     onClick={() => setOpen(false)}
                   >
                     {number}

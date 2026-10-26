@@ -69,7 +69,7 @@ export function Nav(): ReactNode {
         </NavLink>
       </div>
       <Link href="/" className="ws-nav__wordmark">
-        Selah
+        Davidson Blessons
       </Link>
       <div className="ws-nav__group ws-nav__group--end" style={{ alignItems: "center" }}>
         <NavLink href="/memory" match="/memory">

@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Selah — Bible study web app
+# Davidson Blessons — Bible study web app
 
 Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Woset** design system
 (`~/.claude/skills/woset`). Scripture comes live from **API.Bible**; illustrations were generated with **Magnific**.

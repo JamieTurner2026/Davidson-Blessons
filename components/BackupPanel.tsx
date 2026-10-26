@@ -23,7 +23,7 @@ export function BackupPanel({ heading = true }: { heading?: boolean }): ReactNod
   const upload = async (file: File): Promise<void> => {
     try {
       const ok = importStudy(await file.text());
-      setMessage(ok ? "Progress restored." : "That file isn't a Selah backup.");
+      setMessage(ok ? "Progress restored." : "That file isn't a Davidson Blessons backup.");
     } catch {
       setMessage("Couldn't read that file.");
     }

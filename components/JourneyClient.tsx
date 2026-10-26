@@ -8,6 +8,7 @@ import { CountUp } from "@/components/motion/CountUp";
 import { Lamp } from "@/components/motion/Lamp";
 import { ProgressFill } from "@/components/motion/ProgressFill";
 import { Reveal } from "@/components/motion/Reveal";
+import { ProgressCandle } from "@/components/ProgressCandle";
 import { BADGES } from "@/data/badges";
 import { originOf } from "@/lib/celebrations";
 import { addDays, weekday } from "@/lib/day";
@@ -24,7 +25,7 @@ function streakMessage(current: number, restingNow: boolean, litToday: boolean):
   return current === 1 ? "Day one. Welcome." : `${current} days in the Word. Lovely.`;
 }
 
-export function JourneyClient(): ReactNode {
+export function JourneyClient({ notesReady }: { notesReady: number }): ReactNode {
   const { state, today, todayXp, level, streak, starsTotal } = useGame();
   const stage = pilgrimStage(level.index);
   const stageNames = ["The young traveller", "The walker with a staff", "The lamp-bearer", "The elder"];
@@ -51,6 +52,8 @@ export function JourneyClient(): ReactNode {
           </span>
         </div>
       </section>
+
+      <ProgressCandle notesReady={notesReady} />
 
       <section className="pilgrim-card">
         <Image src={`/pilgrim/stage-${stage + 1}.webp`} alt="Your pilgrim" width={120} height={240} className="pilgrim-card__figure" />

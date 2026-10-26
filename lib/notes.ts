@@ -1,6 +1,6 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 import { BOOKS, type ChapterRef } from "@/lib/canon";
@@ -28,6 +28,26 @@ export function noteSlug(bookId: string): string | null {
   const index = BOOKS.findIndex((book) => book.id === bookId);
   const name = BRIDGE_NAMES[index];
   return name ? name.toLowerCase().replace(/ /g, "-") : null;
+}
+
+/** Chapter ids (e.g. "gen.1") that have written study notes, for the picker and progress counts. */
+export async function getNotesIndex(): Promise<string[]> {
+  const found = await Promise.all(
+    BOOKS.map(async (book) => {
+      const slug = noteSlug(book.id);
+      if (!slug) return [];
+      try {
+        const files = await readdir(path.join(NOTES_DIR, slug));
+        return files.flatMap((file) => {
+          const match = /^(\d+)\.json$/.exec(file);
+          return match ? [`${book.id}.${match[1]}`] : [];
+        });
+      } catch {
+        return [];
+      }
+    }),
+  );
+  return found.flat();
 }
 
 /** The written study notes (light markdown) for a chapter, or null if none exist yet. */
