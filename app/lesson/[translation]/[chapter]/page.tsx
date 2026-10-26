@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Fums } from "@/components/Fums";
 import { Lesson } from "@/components/lesson/Lesson";
 import { getChapter } from "@/lib/apibible";
 import { getTranslation } from "@/lib/bibles";
-import { chapterLabel, parseChapterId } from "@/lib/canon";
+import { canonicalChapterId, chapterLabel, parseChapterId } from "@/lib/canon";
 import { versesFromBlocks } from "@/lib/challenge";
 import type { Chapter } from "@/lib/schemas";
 
@@ -24,8 +24,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function LessonPage({ params }: Params): Promise<ReactNode> {
   const { translation: slug, chapter: chapterId } = await params;
   const translation = getTranslation(slug);
+  if (!translation) notFound();
   const place = parseChapterId(chapterId);
-  if (!translation || !place) notFound();
+  if (!place) {
+    const canonical = canonicalChapterId(chapterId);
+    if (canonical) redirect(`/lesson/${translation.slug}/${canonical}`);
+    notFound();
+  }
 
   let chapter: Chapter | null = null;
   try {

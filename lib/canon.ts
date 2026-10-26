@@ -120,6 +120,12 @@ export function parseChapterId(chapterId: string): ChapterRef | null {
   return { bookId: book.id, chapter };
 }
 
+/** Normalises a hand-typed chapter id ("gen.1") to its canonical form ("GEN.1"), or null if it isn't a real chapter. */
+export function canonicalChapterId(chapterId: string): string | null {
+  const place = parseChapterId(chapterId.toUpperCase());
+  return place ? `${place.bookId}.${place.chapter}` : null;
+}
+
 /** Parses "JHN.3.16" → chapter ref + verse number, or null. */
 export function parseVerseId(verseId: string): (ChapterRef & { verse: number }) | null {
   const match = verseId.match(VERSE_ID);

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ChapterPicker } from "@/components/ChapterPicker";
@@ -11,7 +11,7 @@ import { StudyNotes } from "@/components/StudyNotes";
 import { ApiBibleError, getChapter } from "@/lib/apibible";
 import { getNotesIndex, getStudyNotes } from "@/lib/notes";
 import { TRANSLATIONS, getTranslation } from "@/lib/bibles";
-import { adjacentChapter, chapterLabel, parseChapterId, type ChapterRef } from "@/lib/canon";
+import { adjacentChapter, canonicalChapterId, chapterLabel, parseChapterId, type ChapterRef } from "@/lib/canon";
 import type { Chapter } from "@/lib/schemas";
 
 interface Params {
@@ -52,8 +52,13 @@ function ChapterNav({ translation, place }: { translation: string; place: Chapte
 export default async function ReadPage({ params }: Params): Promise<ReactNode> {
   const { translation: slug, chapter: chapterId } = await params;
   const translation = getTranslation(slug);
+  if (!translation) notFound();
   const place = parseChapterId(chapterId);
-  if (!translation || !place) notFound();
+  if (!place) {
+    const canonical = canonicalChapterId(chapterId);
+    if (canonical) redirect(`/read/${translation.slug}/${canonical}`);
+    notFound();
+  }
 
   let chapter: Chapter | null = null;
   let failure: string | null = null;
