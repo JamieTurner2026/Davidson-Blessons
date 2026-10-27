@@ -5,15 +5,26 @@ import { z } from "zod";
 
 import { mergeStudy, stableStringify } from "@/lib/merge";
 import { supabase } from "@/lib/supabase";
-import { currentStudy, replaceStudy, salvageStudy, setWriteHook, type StudyState } from "@/lib/study-store";
+import {
+  currentStudy,
+  forgetLocalStudy,
+  replaceStudy,
+  salvageStudy,
+  setStudyScope,
+  setWriteHook,
+  type StudyState,
+} from "@/lib/study-store";
 
-// Optional account sync. This browser's localStorage stays the working copy; the account's
-// `progress` row is the synced copy. Every pull MERGES (lib/merge.ts), so two devices can
-// never overwrite each other. Pushes are debounced after each local change.
+// Accounts are required: components/SignInGate.tsx shows the sign-in screen until someone
+// is signed in. Each reader's working copy lives in this browser under their own key; their
+// account's `progress` row is the synced copy. Every pull MERGES (lib/merge.ts), so two
+// devices can never overwrite each other. Pushes are debounced after each local change.
 
 export type SyncStatus = "off" | "signed-out" | "syncing" | "synced" | "offline";
 
 export interface AccountState {
+  /** False until the saved session (if any) has been checked, so the gate doesn't flash. */
+  ready: boolean;
   status: SyncStatus;
   email: string | null;
   userId: string | null;
@@ -23,7 +34,7 @@ export interface AccountState {
 
 const PUSH_DELAY_MS = 2000;
 const PULL_THROTTLE_MS = 30_000;
-const SERVER_SNAPSHOT: AccountState = { status: "off", email: null, userId: null, lastSyncedAt: null, error: null };
+const SERVER_SNAPSHOT: AccountState = { ready: false, status: "off", email: null, userId: null, lastSyncedAt: null, error: null };
 
 let account: AccountState = SERVER_SNAPSHOT;
 const listeners = new Set<() => void>();
@@ -52,20 +63,22 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong. Try again.";
 }
 
-async function push(state: StudyState): Promise<void> {
+/** Saves to the account. Resolves true when the account copy is up to date. */
+async function push(state: StudyState): Promise<boolean> {
   const client = supabase();
   const userId = account.userId;
-  if (!client || !userId) return;
+  if (!client || !userId) return false;
   const body = stableStringify(state);
-  if (body === lastPushed) return;
+  if (body === lastPushed) return true;
   setAccount({ status: "syncing" });
   const { error } = await client.from("progress").upsert({ user_id: userId, state }, { onConflict: "user_id" });
   if (error) {
     setAccount({ status: "offline", error: "Couldn't save to your account. Your progress is safe here and will sync later." });
-    return;
+    return false;
   }
   lastPushed = body;
   setAccount({ status: "synced", lastSyncedAt: Date.now(), error: null });
+  return true;
 }
 
 function schedulePush(): void {
@@ -114,7 +127,7 @@ export function startSync(): void {
   started = true;
   const client = supabase();
   if (!client) {
-    setAccount({ status: "off" });
+    setAccount({ ready: true, status: "off" });
     return;
   }
   setAccount({ status: "signed-out" });
@@ -124,11 +137,14 @@ export function startSync(): void {
     const user = session?.user ?? null;
     if (!user) {
       lastPushed = null;
-      setAccount({ status: "signed-out", email: null, userId: null, lastSyncedAt: null });
+      setStudyScope(null);
+      setAccount({ ready: true, status: "signed-out", email: null, userId: null, lastSyncedAt: null });
       return;
     }
     const isNewUser = user.id !== account.userId;
-    setAccount({ email: user.email ?? null, userId: user.id, error: null });
+    // Switch to this reader's own saved progress before anything renders with it.
+    setStudyScope(user.id);
+    setAccount({ ready: true, email: user.email ?? null, userId: user.id, error: null });
     // Supabase calls back synchronously inside its own lock; do the network work afterwards.
     if (isNewUser || event === "SIGNED_IN") window.setTimeout(() => void pull(), 0);
   });
@@ -139,43 +155,104 @@ export function startSync(): void {
   });
 }
 
-// ── Actions for the Account panel ─────────────────────────────────
+// ── Actions for the sign-in screen and Account panel ──────────────
 
 const emailSchema = z.email();
+export const PASSWORD_MIN = 8;
+const UNAVAILABLE = "Sign-in isn't available right now. Please try again later.";
 
 function callbackUrl(): string {
   return `${window.location.origin}/auth/callback`;
 }
 
-/** Sends a one-time sign-in link. Returns an error message, or null on success. */
-export async function sendSignInLink(email: string): Promise<string | null> {
+/** Plain-language versions of Supabase's auth errors. */
+function friendly(error: { message: string }): string {
+  const text = error.message.toLowerCase();
+  if (text.includes("invalid login credentials")) return "That email and password don't match. Try again, or reset your password.";
+  if (text.includes("email not confirmed")) return "Please confirm your email first: open the link we sent you, then sign in.";
+  if (text.includes("already registered")) return "There's already an account with that email. Sign in instead.";
+  if (text.includes("rate limit") || text.includes("too many")) return "Too many tries. Please wait a few minutes and try again.";
+  if (text.includes("password")) return `Please choose a password with at least ${PASSWORD_MIN} characters.`;
+  return error.message;
+}
+
+function checkEmail(email: string): string | null {
+  return emailSchema.safeParse(email.trim()).success ? null : "That doesn't look like an email address.";
+}
+
+function checkPassword(password: string): string | null {
+  return password.length >= PASSWORD_MIN ? null : `Please use at least ${PASSWORD_MIN} characters.`;
+}
+
+/** Signs in with email and password. Returns an error message, or null on success. */
+export async function signInWithPassword(email: string, password: string): Promise<string | null> {
   const client = supabase();
-  if (!client) return "Accounts aren't available right now.";
-  const parsed = emailSchema.safeParse(email.trim());
-  if (!parsed.success) return "That doesn't look like an email address.";
+  if (!client) return UNAVAILABLE;
+  const invalid = checkEmail(email);
+  if (invalid) return invalid;
   try {
-    const { error } = await client.auth.signInWithOtp({ email: parsed.data, options: { emailRedirectTo: callbackUrl() } });
-    return error ? error.message : null;
+    const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+    return error ? friendly(error) : null;
   } catch (error) {
     return message(error);
   }
 }
 
-export async function signInWithGoogle(): Promise<string | null> {
+export type CreateResult = { ok: true; confirm: boolean } | { ok: false; error: string };
+
+/** Creates an account. `confirm` means the reader must open the confirmation email before signing in. */
+export async function createAccount(email: string, password: string): Promise<CreateResult> {
   const client = supabase();
-  if (!client) return "Accounts aren't available right now.";
+  if (!client) return { ok: false, error: UNAVAILABLE };
+  const invalid = checkEmail(email) ?? checkPassword(password);
+  if (invalid) return { ok: false, error: invalid };
   try {
-    const { error } = await client.auth.signInWithOAuth({ provider: "google", options: { redirectTo: callbackUrl() } });
-    return error ? error.message : null;
+    const { data, error } = await client.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { emailRedirectTo: callbackUrl() },
+    });
+    if (error) return { ok: false, error: friendly(error) };
+    return { ok: true, confirm: !data.session };
+  } catch (error) {
+    return { ok: false, error: message(error) };
+  }
+}
+
+/** Emails a password-reset link. Returns an error message, or null on success. */
+export async function sendPasswordReset(email: string): Promise<string | null> {
+  const client = supabase();
+  if (!client) return UNAVAILABLE;
+  const invalid = checkEmail(email);
+  if (invalid) return invalid;
+  try {
+    const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth/reset`,
+    });
+    return error ? friendly(error) : null;
   } catch (error) {
     return message(error);
   }
 }
 
-/** Finishes a sign-in link or Google redirect. Returns an error message, or null on success. */
+/** Sets a new password for the signed-in reader (after opening a reset link). */
+export async function setNewPassword(password: string): Promise<string | null> {
+  const client = supabase();
+  if (!client) return UNAVAILABLE;
+  const invalid = checkPassword(password);
+  if (invalid) return invalid;
+  try {
+    const { error } = await client.auth.updateUser({ password });
+    return error ? friendly(error) : null;
+  } catch (error) {
+    return message(error);
+  }
+}
+
+/** Finishes an email-confirmation or password-reset link. Returns an error message, or null on success. */
 export async function finishSignIn(code: string): Promise<string | null> {
   const client = supabase();
-  if (!client) return "Accounts aren't available right now.";
+  if (!client) return UNAVAILABLE;
   try {
     const { error } = await client.auth.exchangeCodeForSession(code);
     return error ? error.message : null;
@@ -184,17 +261,28 @@ export async function finishSignIn(code: string): Promise<string | null> {
   }
 }
 
-/** Signs out. This browser keeps its copy of the progress. */
-export async function signOut(): Promise<void> {
-  flushPush();
+/**
+ * Saves the latest progress to the account, clears it from this browser so the next person
+ * starts fresh, then signs out. If the save fails, nothing is cleared and the reader stays
+ * signed in. Returns an error message, or null on success.
+ */
+export async function signOut(): Promise<string | null> {
+  const userId = account.userId;
+  if (pushTimer !== null) window.clearTimeout(pushTimer);
+  pushTimer = null;
+  if (userId && !(await push(currentStudy()))) {
+    return "Couldn't save your latest progress to your account, so you're still signed in. Check your connection and try again.";
+  }
+  if (userId) forgetLocalStudy(userId);
   try {
     await supabase()?.auth.signOut();
   } catch {
     // Already signed out or offline: the local session is cleared either way.
   }
+  return null;
 }
 
-/** Deletes the account's synced copy, then signs out. This browser keeps its copy. */
+/** Deletes the reader's progress from their account and this browser, then signs out. The login itself stays. */
 export async function deleteSyncedProgress(): Promise<string | null> {
   const client = supabase();
   const userId = account.userId;
@@ -204,6 +292,8 @@ export async function deleteSyncedProgress(): Promise<string | null> {
   try {
     const { error } = await client.from("progress").delete().eq("user_id", userId);
     if (error) return error.message;
+    lastPushed = null;
+    forgetLocalStudy(userId);
     await client.auth.signOut();
     return null;
   } catch (error) {

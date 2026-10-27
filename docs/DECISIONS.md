@@ -131,3 +131,12 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - User-facing name is now **Davidson Blessons** (nav, footer, titles, welcome page, README, package name).
 - **Deliberately unchanged:** localStorage key `selah:v1`, auth storage key `selah:auth`, the Supabase project/table. Renaming them would wipe saved progress and sign-ins.
 - Ported from the old Vite app: chapters-read progress on `/journey` (`components/ProgressCandle.tsx`, reuses the reading-driven `chaptersRead` instead of a second "learned" key) and an outlined chapter button where study notes exist (`getNotesIndex` in `lib/notes.ts`).
+
+## 2026-10-27 — Sign-in required, email + password
+- **Decided (owner's request):** everyone signs in before using the app, so each person has their own study session. Replaces the 2026-10-10 "optional accounts, works fully signed out" decision.
+- **Email + password only.** The email-link and Google buttons were removed. Sign-up sends a confirmation email when Supabase's "Confirm email" is on (`/auth/callback`); "Forgot password" sends a reset link (`/auth/reset`). Passwords need at least 8 characters.
+- **One working copy per person.** localStorage moved from the single `selah:v1` key to `selah:v1:user:<id>`, chosen on every auth change (`setStudyScope`). The first account to sign in on a browser takes over whatever was saved under the old key. Nothing is saved while signed out.
+- **Sign-out clears the browser copy** after a successful push, so the next person on a shared device starts fresh. If the push fails, the reader stays signed in and is told why. "Delete synced progress" became "Delete my progress": it erases the account row and the browser copy (the login itself stays).
+- **Still browser-only auth** (no cookies or server session, as decided on 2026-10-10). The gate is a sign-in requirement, not a content wall: pages still render on the server and Scripture is public. Each person's data is protected by RLS.
+- **Check:** `npx tsx scripts/check-scope.mts` (two readers sharing a browser).
+

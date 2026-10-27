@@ -32,11 +32,20 @@ import {
   type StreakInfo,
 } from "@/lib/game";
 
-// Everything personal lives in this browser only. One versioned key, Zod-checked on
-// read. A value that fails the check is backed up untouched, then salvaged field by
-// field, so one bad entry never wipes the rest. v2/v3 fields all have defaults.
+// The working copy of each reader's progress lives in this browser under their own key
+// (`selah:v1:user:<id>`), Zod-checked on read, and syncs to their account (lib/sync.ts).
+// Sign-in is required, so nothing is saved while nobody is signed in. A value that fails
+// the check is backed up untouched, then salvaged field by field, so one bad entry never
+// wipes the rest. v2/v3 fields all have defaults.
 
-const STORAGE_KEY = "selah:v1";
+// Progress saved before sign-in was required. The first account to sign in on this
+// browser takes it over (see setStudyScope).
+const LEGACY_KEY = "selah:v1";
+let storageKey: string | null = null;
+
+function keyFor(userId: string): string {
+  return `${LEGACY_KEY}:user:${userId}`;
+}
 
 const MEMORY_TEXT_MAX = 2000;
 const JOURNAL_TEXT_MAX = 10000;
@@ -128,9 +137,10 @@ export function salvageStudy(raw: unknown): StudyState {
 }
 
 function readStorage(): StudyState {
+  if (storageKey === null) return EMPTY;
   let rawValue: string | null = null;
   try {
-    rawValue = window.localStorage.getItem(STORAGE_KEY);
+    rawValue = window.localStorage.getItem(storageKey);
     if (!rawValue) return EMPTY;
     const parsed: unknown = JSON.parse(rawValue);
     const result = studySchema.safeParse(parsed);
@@ -144,9 +154,10 @@ function readStorage(): StudyState {
 }
 
 /** Keeps the untouched original before any repaired state can be written over it. */
-function backupRaw(rawValue: string): void {
+function backupRaw(rawValue: string, key: string | null = storageKey): void {
+  if (key === null) return;
   try {
-    window.localStorage.setItem(`${STORAGE_KEY}:backup:${dayKey()}`, rawValue);
+    window.localStorage.setItem(`${key}:backup:${dayKey()}`, rawValue);
   } catch {
     // Quota full: nothing more we can do without risking the main key.
   }
@@ -164,7 +175,7 @@ function getServerSnapshot(): StudyState {
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   const onStorage = (event: StorageEvent): void => {
-    if (event.key !== STORAGE_KEY) return;
+    if (storageKey === null || event.key !== storageKey) return;
     cache = readStorage();
     listener();
   };
@@ -194,13 +205,55 @@ export function replaceStudy(next: StudyState): void {
 
 function write(next: StudyState): void {
   cache = next;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Private mode / quota: keep the in-memory state so the session still works.
+  if (storageKey !== null) {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      // Private mode / quota: keep the in-memory state so the session still works.
+    }
   }
   listeners.forEach((listener) => listener());
   writeHook?.(next);
+}
+
+/**
+ * Points the store at one reader's saved progress (null = nobody signed in). Called by
+ * lib/sync.ts on every sign-in and sign-out, so two people sharing a browser never see
+ * each other's progress.
+ */
+export function setStudyScope(userId: string | null): void {
+  const next = userId === null ? null : keyFor(userId);
+  if (next === storageKey) return;
+  storageKey = next;
+  if (next !== null) claimLegacy(next);
+  cache = null;
+  listeners.forEach((listener) => listener());
+}
+
+/** Hands progress saved before sign-in was required to the first account that signs in here. */
+function claimLegacy(key: string): void {
+  try {
+    const legacy = window.localStorage.getItem(LEGACY_KEY);
+    if (legacy === null) return;
+    if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, legacy);
+    backupRaw(legacy, LEGACY_KEY);
+    window.localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    // Storage unavailable: the account copy still loads when sync pulls it.
+  }
+}
+
+/** Removes this reader's working copy from the browser (after it's safely in their account). */
+export function forgetLocalStudy(userId: string): void {
+  try {
+    window.localStorage.removeItem(keyFor(userId));
+  } catch {
+    // Nothing stored, or storage unavailable.
+  }
+  if (storageKey === keyFor(userId)) {
+    cache = EMPTY;
+    listeners.forEach((listener) => listener());
+  }
 }
 
 export function useStudy(): StudyState {

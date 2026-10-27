@@ -3,7 +3,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-// Browser-only Supabase client for optional accounts. The publishable key is public by
+// Browser-only Supabase client for accounts (sign-in is required; see components/SignInGate.tsx). The publishable key is public by
 // design; Row Level Security limits every signed-in reader to their own `progress` row.
 
 const envSchema = z.object({
@@ -13,7 +13,7 @@ const envSchema = z.object({
 
 let client: SupabaseClient | null | undefined;
 
-/** The shared client, or null on the server or when accounts aren't configured (the app still works signed out). */
+/** The shared client, or null on the server or when accounts aren't configured (the sign-in screen then says so). */
 export function supabase(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
   if (client !== undefined) return client;

@@ -9,7 +9,7 @@ import { SplitHeadline } from "@/components/motion/SplitHeadline";
 export const metadata: Metadata = {
   title: "Davidson Blessons — a Bible journey you'll want to take every day",
   description:
-    "Read Scripture as a journey: bite-size lessons, games, memory verses, gentle streaks and a hand-drawn pilgrim who grows with you. No account needed.",
+    "Read Scripture as a journey: bite-size lessons, games, memory verses, gentle streaks and a hand-drawn pilgrim who grows with you. Free, with your own private account.",
 };
 
 const FEATURES: ReadonlyArray<{ title: string; body: string; art: string }> = [
@@ -38,7 +38,7 @@ const FEATURES: ReadonlyArray<{ title: string; body: string; art: string }> = [
 const PROMISES: ReadonlyArray<{ title: string; body: string }> = [
   { title: "Encourage, never punish", body: "One rest day a week never breaks your streak, and reading a paper Bible counts too." },
   { title: "Six translations", body: "BSB, NIV, KJV, WEB, ASV and LSV — switch any time, with your highlights following you." },
-  { title: "Private by design", body: "No account needed and no tracking. Sign in only if you want your progress on every device." },
+  { title: "Private by design", body: "Your own free account keeps your progress on every device. No tracking, and only you can see your journal and highlights." },
 ];
 
 const STAGES = [1, 2, 3, 4];
@@ -115,7 +115,7 @@ export default function WelcomePage(): ReactNode {
           Be still, and read.
         </h2>
         <p className="ws-muted" style={{ margin: 0 }}>
-          No sign-up. Open it and take your first step today.
+          Free to join. Create your account and take your first step today.
         </p>
         <div className="ws-pills">
           <Link href="/map" className="ws-pill ws-pill--primary">
