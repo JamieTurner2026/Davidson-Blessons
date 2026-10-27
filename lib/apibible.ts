@@ -24,6 +24,15 @@ export class ApiBibleError extends Error {
   }
 }
 
+/** A short, non-secret code for why a request failed, safe to show on screen. */
+export function describeFailure(error: unknown): string {
+  if (error instanceof ApiBibleError) {
+    return error.message.includes("API_BIBLE_KEY") ? "not-configured" : `api-${error.status}`;
+  }
+  if (error instanceof Error && error.name === "ZodError") return "parse";
+  return "network";
+}
+
 function apiKey(): string {
   const key = process.env.API_BIBLE_KEY;
   if (!key) throw new ApiBibleError("API_BIBLE_KEY is not set", 500);

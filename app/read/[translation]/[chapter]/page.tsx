@@ -8,7 +8,7 @@ import { Fums } from "@/components/Fums";
 import { Journal } from "@/components/Journal";
 import { Reader } from "@/components/Reader";
 import { StudyNotes } from "@/components/StudyNotes";
-import { ApiBibleError, getChapter } from "@/lib/apibible";
+import { ApiBibleError, describeFailure, getChapter } from "@/lib/apibible";
 import { getNotesIndex, getStudyNotes } from "@/lib/notes";
 import { TRANSLATIONS, getTranslation } from "@/lib/bibles";
 import { adjacentChapter, canonicalChapterId, chapterLabel, parseChapterId, type ChapterRef } from "@/lib/canon";
@@ -69,7 +69,7 @@ export default async function ReadPage({ params }: Params): Promise<ReactNode> {
     failure =
       error instanceof ApiBibleError && error.status === 404
         ? `${translation.abbreviation} doesn't include ${chapterLabel(place)}.`
-        : "We couldn't load this chapter just now. Please try again in a moment.";
+        : `We couldn't load this chapter just now. Please try again in a moment. (code: ${describeFailure(error)})`;
   }
 
   const [notes, notesReady] = await Promise.all([getStudyNotes(place), getNotesIndex()]);
