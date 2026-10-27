@@ -15,8 +15,8 @@ import {
   type StudyState,
 } from "@/lib/study-store";
 
-// Accounts are required: components/SignInGate.tsx shows the username + password sign-in
-// screen until someone is signed in. Each reader's working copy lives in this browser under their own key; their
+// Accounts are required: components/SignInGate.tsx shows the sign-in screen (tap your name,
+// enter your password) until someone is signed in. Each reader's working copy lives in this browser under their own key; their
 // account's `progress` row is the synced copy. Every pull MERGES (lib/merge.ts), so two
 // devices can never overwrite each other. Pushes are debounced after each local change.
 
@@ -26,6 +26,8 @@ export interface AccountState {
   /** False until the saved session (if any) has been checked, so the gate doesn't flash. */
   ready: boolean;
   status: SyncStatus;
+  /** The member's display name (shown on their sign-in tile). */
+  name: string | null;
   email: string | null;
   userId: string | null;
   lastSyncedAt: number | null;
@@ -34,7 +36,7 @@ export interface AccountState {
 
 const PUSH_DELAY_MS = 2000;
 const PULL_THROTTLE_MS = 30_000;
-const SERVER_SNAPSHOT: AccountState = { ready: false, status: "off", email: null, userId: null, lastSyncedAt: null, error: null };
+const SERVER_SNAPSHOT: AccountState = { ready: false, status: "off", name: null, email: null, userId: null, lastSyncedAt: null, error: null };
 
 let account: AccountState = SERVER_SNAPSHOT;
 const listeners = new Set<() => void>();
@@ -138,15 +140,22 @@ export function startSync(): void {
     if (!user) {
       lastPushed = null;
       setStudyScope(null);
-      setAccount({ ready: true, status: "signed-out", email: null, userId: null, lastSyncedAt: null });
+      setAccount({ ready: true, status: "signed-out", name: null, email: null, userId: null, lastSyncedAt: null });
       return;
     }
     const isNewUser = user.id !== account.userId;
     // Switch to this reader's own saved progress before anything renders with it.
     setStudyScope(user.id);
-    setAccount({ ready: true, email: user.email ?? null, userId: user.id, error: null });
+    const metaName = z.string().safeParse(user.user_metadata?.display_name);
+    const name = metaName.success ? metaName.data : null;
+    setAccount({ ready: true, name, email: user.email ?? null, userId: user.id, error: null });
     // Supabase calls back synchronously inside its own lock; do the network work afterwards.
-    if (isNewUser || event === "SIGNED_IN") window.setTimeout(() => void pull(), 0);
+    if (isNewUser || event === "SIGNED_IN") {
+      window.setTimeout(() => {
+        void ensureProfile(user.id, user.email ?? null, name);
+        void pull();
+      }, 0);
+    }
   });
 
   document.addEventListener("visibilitychange", () => {
@@ -158,36 +167,52 @@ export function startSync(): void {
 // ── Actions for the sign-in screen and Account panel ──────────────
 
 export const PASSWORD_MIN = 8;
-export const USERNAME_RULES = "3–24 letters, numbers, dots, dashes or underscores";
+export const NAME_MAX = 30;
 const UNAVAILABLE = "Sign-in isn't available right now. Please try again later.";
 
-// Readers sign in with a username, not an email. Supabase accounts are keyed by email, so each
-// username maps to a placeholder address on this app's own domain. No email is ever sent to it:
-// Supabase's "Confirm email" must stay off (docs/RUNBOOKS.md).
-const USERNAME_DOMAIN = "davidson-blessons.vercel.app";
-const usernameSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .regex(/^[a-z0-9._-]{3,24}$/);
+// Sign-in works like the DDA2 training app: tap your name, then enter your password. No email.
+// Supabase keys accounts by email, so each member gets a placeholder address on this app's own
+// domain (never mailed: "Confirm email" must stay off). The public `profiles` table lists names
+// for the sign-in tiles; it holds no progress (docs/RUNBOOKS.md has its SQL).
+const KEY_DOMAIN = "davidson-blessons.vercel.app";
 
-function accountEmail(username: string): string | null {
-  const parsed = usernameSchema.safeParse(username);
-  return parsed.success ? `${parsed.data}@${USERNAME_DOMAIN}` : null;
+export interface Member {
+  id: string;
+  name: string;
+  /** The member's placeholder sign-in email. */
+  key: string;
 }
 
-/** The username behind an account's placeholder email (or the email itself for any other account). */
-export function usernameOf(email: string | null): string | null {
-  if (!email) return null;
-  const suffix = `@${USERNAME_DOMAIN}`;
-  return email.endsWith(suffix) ? email.slice(0, -suffix.length) : email;
+const memberRowsSchema = z.array(z.object({ id: z.string(), display_name: z.string(), username_key: z.string() }));
+
+/** Everyone who can sign in, by name. Returns an error message if the list can't be loaded. */
+export async function listMembers(): Promise<Member[] | string> {
+  const client = supabase();
+  if (!client) return UNAVAILABLE;
+  try {
+    const { data, error } = await client.from("profiles").select("id, display_name, username_key").order("display_name");
+    const rows = memberRowsSchema.safeParse(data);
+    if (error || !rows.success) return "Couldn't load the list of members. Check your connection and try again.";
+    return rows.data.map((row) => ({ id: row.id, name: row.display_name, key: row.username_key }));
+  } catch {
+    return "Couldn't load the list of members. Check your connection and try again.";
+  }
+}
+
+function cleanName(name: string): string {
+  return name.replace(/\s+/g, " ").trim().slice(0, NAME_MAX);
+}
+
+function newKey(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 20) || "member";
+  const random = Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) => byte.toString(36).padStart(2, "0")).join("");
+  return `${slug}-${random}@${KEY_DOMAIN}`;
 }
 
 /** Plain-language versions of Supabase's auth errors. */
 function friendly(error: { message: string }): string {
   const text = error.message.toLowerCase();
-  if (text.includes("invalid login credentials")) return "That username and password don't match. Try again.";
-  if (text.includes("already registered") || text.includes("already been registered")) return "That username is taken. Please choose another.";
+  if (text.includes("invalid login credentials")) return "That password isn't right. Try again.";
   if (text.includes("email not confirmed") || text.includes("email address") || text.includes("invalid email")) {
     return "Sign-up isn't set up correctly yet. Please let the site owner know.";
   }
@@ -200,32 +225,32 @@ function checkPassword(password: string): string | null {
   return password.length >= PASSWORD_MIN ? null : `Please use at least ${PASSWORD_MIN} characters.`;
 }
 
-const BAD_USERNAME = `Usernames are ${USERNAME_RULES}.`;
-
-/** Signs in with username and password. Returns an error message, or null on success. */
-export async function signInWithPassword(username: string, password: string): Promise<string | null> {
+/** Signs a member in. Returns an error message, or null on success. */
+export async function signInMember(member: Member, password: string): Promise<string | null> {
   const client = supabase();
   if (!client) return UNAVAILABLE;
-  const email = accountEmail(username);
-  if (!email) return "That username and password don't match. Try again.";
   try {
-    const { error } = await client.auth.signInWithPassword({ email, password });
+    const { error } = await client.auth.signInWithPassword({ email: member.key, password });
     return error ? friendly(error) : null;
   } catch (error) {
     return message(error);
   }
 }
 
-/** Creates an account and signs it in. Returns an error message, or null on success. */
-export async function createAccount(username: string, password: string): Promise<string | null> {
+/** Creates a member (their name tile appears once they're signed in) and signs them in. */
+export async function createMember(name: string, password: string): Promise<string | null> {
   const client = supabase();
   if (!client) return UNAVAILABLE;
-  const email = accountEmail(username);
-  if (!email) return BAD_USERNAME;
+  const displayName = cleanName(name);
+  if (!displayName) return "Please enter your name.";
   const invalid = checkPassword(password);
   if (invalid) return invalid;
   try {
-    const { data, error } = await client.auth.signUp({ email, password });
+    const { data, error } = await client.auth.signUp({
+      email: newKey(displayName),
+      password,
+      options: { data: { display_name: displayName } },
+    });
     if (error) return friendly(error);
     // No session means Supabase is still set to confirm emails, which can never arrive here.
     return data.session ? null : "Your account was created, but sign-up isn't set up correctly yet. Please let the site owner know.";
@@ -234,7 +259,16 @@ export async function createAccount(username: string, password: string): Promise
   }
 }
 
-/** Changes the signed-in reader's password after checking their current one. */
+/** Adds the signed-in member's name tile if it's missing (e.g. sign-up succeeded but the insert didn't). */
+async function ensureProfile(userId: string, email: string | null, name: string | null): Promise<void> {
+  const client = supabase();
+  if (!client || !email || !name) return;
+  await client
+    .from("profiles")
+    .upsert({ id: userId, display_name: name, username_key: email }, { onConflict: "id", ignoreDuplicates: true });
+}
+
+/** Changes the signed-in member's password after checking their current one. */
 export async function changePassword(current: string, next: string): Promise<string | null> {
   const client = supabase();
   if (!client) return UNAVAILABLE;

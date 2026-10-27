@@ -3,7 +3,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { BackupPanel } from "@/components/BackupPanel";
-import { changePassword, deleteSyncedProgress, PASSWORD_MIN, signOut, useAccount, usernameOf, type AccountState } from "@/lib/sync";
+import { changePassword, deleteSyncedProgress, PASSWORD_MIN, signOut, useAccount, type AccountState } from "@/lib/sync";
 
 function syncLine(account: AccountState): string {
   if (account.status === "syncing") return "Syncing…";
@@ -110,7 +110,7 @@ function SignedIn({ account }: { account: AccountState }): ReactNode {
   return (
     <div className="ws-stack" style={{ gap: 14, padding: 0 }}>
       <span>
-        Signed in as <strong style={{ fontWeight: 500 }}>{usernameOf(account.email) ?? "your account"}</strong>
+        Signed in as <strong style={{ fontWeight: 500 }}>{account.name ?? "your account"}</strong>
       </span>
       <span className="ws-muted" role="status">
         {syncLine(account)}
