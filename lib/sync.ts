@@ -15,8 +15,8 @@ import {
   type StudyState,
 } from "@/lib/study-store";
 
-// Accounts are required: components/SignInGate.tsx shows the sign-in screen until someone
-// is signed in. Each reader's working copy lives in this browser under their own key; their
+// Accounts are required: components/SignInGate.tsx shows the username + password sign-in
+// screen until someone is signed in. Each reader's working copy lives in this browser under their own key; their
 // account's `progress` row is the synced copy. Every pull MERGES (lib/merge.ts), so two
 // devices can never overwrite each other. Pushes are debounced after each local change.
 
@@ -157,99 +157,101 @@ export function startSync(): void {
 
 // ── Actions for the sign-in screen and Account panel ──────────────
 
-const emailSchema = z.email();
 export const PASSWORD_MIN = 8;
+export const USERNAME_RULES = "3–24 letters, numbers, dots, dashes or underscores";
 const UNAVAILABLE = "Sign-in isn't available right now. Please try again later.";
 
-function callbackUrl(): string {
-  return `${window.location.origin}/auth/callback`;
+// Readers sign in with a username, not an email. Supabase accounts are keyed by email, so each
+// username maps to a placeholder address on this app's own domain. No email is ever sent to it:
+// Supabase's "Confirm email" must stay off (docs/RUNBOOKS.md).
+const USERNAME_DOMAIN = "davidson-blessons.vercel.app";
+const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9._-]{3,24}$/);
+
+function accountEmail(username: string): string | null {
+  const parsed = usernameSchema.safeParse(username);
+  return parsed.success ? `${parsed.data}@${USERNAME_DOMAIN}` : null;
+}
+
+/** The username behind an account's placeholder email (or the email itself for any other account). */
+export function usernameOf(email: string | null): string | null {
+  if (!email) return null;
+  const suffix = `@${USERNAME_DOMAIN}`;
+  return email.endsWith(suffix) ? email.slice(0, -suffix.length) : email;
 }
 
 /** Plain-language versions of Supabase's auth errors. */
 function friendly(error: { message: string }): string {
   const text = error.message.toLowerCase();
-  if (text.includes("invalid login credentials")) return "That email and password don't match. Try again, or reset your password.";
-  if (text.includes("email not confirmed")) return "Please confirm your email first: open the link we sent you, then sign in.";
-  if (text.includes("already registered")) return "There's already an account with that email. Sign in instead.";
+  if (text.includes("invalid login credentials")) return "That username and password don't match. Try again.";
+  if (text.includes("already registered") || text.includes("already been registered")) return "That username is taken. Please choose another.";
+  if (text.includes("email not confirmed") || text.includes("email address") || text.includes("invalid email")) {
+    return "Sign-up isn't set up correctly yet. Please let the site owner know.";
+  }
   if (text.includes("rate limit") || text.includes("too many")) return "Too many tries. Please wait a few minutes and try again.";
   if (text.includes("password")) return `Please choose a password with at least ${PASSWORD_MIN} characters.`;
   return error.message;
-}
-
-function checkEmail(email: string): string | null {
-  return emailSchema.safeParse(email.trim()).success ? null : "That doesn't look like an email address.";
 }
 
 function checkPassword(password: string): string | null {
   return password.length >= PASSWORD_MIN ? null : `Please use at least ${PASSWORD_MIN} characters.`;
 }
 
-/** Signs in with email and password. Returns an error message, or null on success. */
-export async function signInWithPassword(email: string, password: string): Promise<string | null> {
+const BAD_USERNAME = `Usernames are ${USERNAME_RULES}.`;
+
+/** Signs in with username and password. Returns an error message, or null on success. */
+export async function signInWithPassword(username: string, password: string): Promise<string | null> {
   const client = supabase();
   if (!client) return UNAVAILABLE;
-  const invalid = checkEmail(email);
-  if (invalid) return invalid;
+  const email = accountEmail(username);
+  if (!email) return "That username and password don't match. Try again.";
   try {
-    const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await client.auth.signInWithPassword({ email, password });
     return error ? friendly(error) : null;
   } catch (error) {
     return message(error);
   }
 }
 
-export type CreateResult = { ok: true; confirm: boolean } | { ok: false; error: string };
-
-/** Creates an account. `confirm` means the reader must open the confirmation email before signing in. */
-export async function createAccount(email: string, password: string): Promise<CreateResult> {
-  const client = supabase();
-  if (!client) return { ok: false, error: UNAVAILABLE };
-  const invalid = checkEmail(email) ?? checkPassword(password);
-  if (invalid) return { ok: false, error: invalid };
-  try {
-    const { data, error } = await client.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { emailRedirectTo: callbackUrl() },
-    });
-    if (error) return { ok: false, error: friendly(error) };
-    return { ok: true, confirm: !data.session };
-  } catch (error) {
-    return { ok: false, error: message(error) };
-  }
-}
-
-/** Emails a password-reset link. Returns an error message, or null on success. */
-export async function sendPasswordReset(email: string): Promise<string | null> {
+/** Creates an account and signs it in. Returns an error message, or null on success. */
+export async function createAccount(username: string, password: string): Promise<string | null> {
   const client = supabase();
   if (!client) return UNAVAILABLE;
-  const invalid = checkEmail(email);
-  if (invalid) return invalid;
-  try {
-    const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/reset`,
-    });
-    return error ? friendly(error) : null;
-  } catch (error) {
-    return message(error);
-  }
-}
-
-/** Sets a new password for the signed-in reader (after opening a reset link). */
-export async function setNewPassword(password: string): Promise<string | null> {
-  const client = supabase();
-  if (!client) return UNAVAILABLE;
+  const email = accountEmail(username);
+  if (!email) return BAD_USERNAME;
   const invalid = checkPassword(password);
   if (invalid) return invalid;
   try {
-    const { error } = await client.auth.updateUser({ password });
+    const { data, error } = await client.auth.signUp({ email, password });
+    if (error) return friendly(error);
+    // No session means Supabase is still set to confirm emails, which can never arrive here.
+    return data.session ? null : "Your account was created, but sign-up isn't set up correctly yet. Please let the site owner know.";
+  } catch (error) {
+    return message(error);
+  }
+}
+
+/** Changes the signed-in reader's password after checking their current one. */
+export async function changePassword(current: string, next: string): Promise<string | null> {
+  const client = supabase();
+  if (!client) return UNAVAILABLE;
+  if (!account.email) return "You're not signed in.";
+  const invalid = checkPassword(next);
+  if (invalid) return invalid;
+  try {
+    const check = await client.auth.signInWithPassword({ email: account.email, password: current });
+    if (check.error) return "Your current password isn't right.";
+    const { error } = await client.auth.updateUser({ password: next });
     return error ? friendly(error) : null;
   } catch (error) {
     return message(error);
   }
 }
 
-/** Finishes an email-confirmation or password-reset link. Returns an error message, or null on success. */
+/** Finishes a Supabase auth link (/auth/callback). Not used by username sign-in; kept for links already sent. */
 export async function finishSignIn(code: string): Promise<string | null> {
   const client = supabase();
   if (!client) return UNAVAILABLE;

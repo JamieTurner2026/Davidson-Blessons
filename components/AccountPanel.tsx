@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import { BackupPanel } from "@/components/BackupPanel";
-import { deleteSyncedProgress, signOut, useAccount, type AccountState } from "@/lib/sync";
+import { changePassword, deleteSyncedProgress, PASSWORD_MIN, signOut, useAccount, usernameOf, type AccountState } from "@/lib/sync";
 
 function syncLine(account: AccountState): string {
   if (account.status === "syncing") return "Syncing…";
@@ -16,6 +16,82 @@ function syncLine(account: AccountState): string {
 }
 
 const CONFIRM_WORD = "DELETE";
+
+/** Accounts have no email, so this is the only way to replace a password (besides the owner). */
+function ChangePassword(): ReactNode {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const save = async (event: FormEvent): Promise<void> => {
+    event.preventDefault();
+    if (next !== again) {
+      setResult({ ok: false, text: "The two new passwords don't match." });
+      return;
+    }
+    setBusy(true);
+    const error = await changePassword(current, next);
+    setBusy(false);
+    if (error) setResult({ ok: false, text: error });
+    else {
+      setResult({ ok: true, text: "Password changed." });
+      setCurrent("");
+      setNext("");
+      setAgain("");
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className="ws-stack" style={{ gap: 10, padding: 0 }}>
+      <div className="ws-pills ws-pills--start">
+        <button type="button" className="ws-pill" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          Change password
+        </button>
+      </div>
+      {open && (
+        <form className="ws-stack gate__panel" onSubmit={(event) => void save(event)} noValidate>
+          {(
+            [
+              ["account-current", "Current password", current, setCurrent, "current-password"],
+              ["account-new", `New password (at least ${PASSWORD_MIN} characters)`, next, setNext, "new-password"],
+              ["account-again", "Type the new password again", again, setAgain, "new-password"],
+            ] as const
+          ).map(([id, label, value, setValue, autoComplete]) => (
+            <div key={id} className="ws-stack" style={{ gap: 6, padding: 0 }}>
+              <label htmlFor={id} className="ws-label">
+                {label}
+              </label>
+              <input
+                id={id}
+                className="ws-input"
+                type="password"
+                autoComplete={autoComplete}
+                required
+                maxLength={72}
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+              />
+            </div>
+          ))}
+          <div className="ws-pills ws-pills--start">
+            <button type="submit" className="ws-pill" disabled={busy}>
+              {busy ? "Saving…" : "Save new password"}
+            </button>
+          </div>
+        </form>
+      )}
+      {result && (
+        <span className={result.ok ? undefined : "ws-muted"} role={result.ok ? "status" : "alert"}>
+          {result.text}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function SignedIn({ account }: { account: AccountState }): ReactNode {
   const [confirming, setConfirming] = useState(false);
@@ -34,7 +110,7 @@ function SignedIn({ account }: { account: AccountState }): ReactNode {
   return (
     <div className="ws-stack" style={{ gap: 14, padding: 0 }}>
       <span>
-        Signed in as <strong style={{ fontWeight: 500 }}>{account.email ?? "your account"}</strong>
+        Signed in as <strong style={{ fontWeight: 500 }}>{usernameOf(account.email) ?? "your account"}</strong>
       </span>
       <span className="ws-muted" role="status">
         {syncLine(account)}
@@ -54,6 +130,7 @@ function SignedIn({ account }: { account: AccountState }): ReactNode {
           Delete my progress
         </button>
       </div>
+      <ChangePassword />
       <span className="ws-muted">Signing out saves your progress to your account and clears it from this browser, so whoever signs in next starts fresh.</span>
       {confirming && (
         <div className="ws-stack" style={{ gap: 10, padding: 0 }}>

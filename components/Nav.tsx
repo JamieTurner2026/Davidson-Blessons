@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Lamp } from "@/components/motion/Lamp";
 import { useGame } from "@/lib/study-store";
-import { useAccount } from "@/lib/sync";
+import { useAccount, usernameOf } from "@/lib/sync";
 
 function NavLink({ href, match, children }: { href: string; match: string; children: ReactNode }): ReactNode {
   const pathname = usePathname();
@@ -32,9 +32,10 @@ function OilJar(): ReactNode {
 function AccountChip(): ReactNode {
   const account = useAccount();
   if (!account.userId) return null;
-  const initial = (account.email ?? "?").trim().charAt(0).toUpperCase();
+  const name = usernameOf(account.email);
+  const initial = (name ?? "?").trim().charAt(0).toUpperCase();
   return (
-    <Link href="/journey#account" className="nav-account nav-account--signed-in" aria-label={`Account: ${account.email ?? "signed in"}`} title={account.email ?? undefined}>
+    <Link href="/journey#account" className="nav-account nav-account--signed-in" aria-label={`Account: ${name ?? "signed in"}`} title={name ?? undefined}>
       {initial}
     </Link>
   );
