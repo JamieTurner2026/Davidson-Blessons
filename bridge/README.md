@@ -1,4 +1,5 @@
 # Bridge: study notes from NotebookLM, NIV text from your own PDF
+> **Update:** the app is now the Next.js reader (formerly Selah). `publish_static.py` exports only the study notes (the reader gets scripture from API.Bible) and deploys one site. Sections below that mention the public/private editions, `VITE_*` variables or the live-write fallback describe the retired Vite app.
 
 This folder is the small Python server that runs on the owner's PC and feeds
 the Davidson Blessons app. It does three jobs:
