@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { Fums } from "@/components/Fums";
 import { Lesson } from "@/components/lesson/Lesson";
-import { getChapter } from "@/lib/apibible";
+import { describeFailure, getChapter } from "@/lib/apibible";
 import { getTranslation } from "@/lib/bibles";
 import { canonicalChapterId, chapterLabel, parseChapterId } from "@/lib/canon";
 import { versesFromBlocks } from "@/lib/challenge";
@@ -33,10 +33,12 @@ export default async function LessonPage({ params }: Params): Promise<ReactNode>
   }
 
   let chapter: Chapter | null = null;
+  let reason = "";
   try {
     chapter = await getChapter(translation, chapterId);
   } catch (error) {
     console.error(`Lesson ${translation.slug}/${chapterId} failed to load:`, error instanceof Error ? error.message : error);
+    reason = describeFailure(error);
     chapter = null;
   }
 
@@ -56,7 +58,7 @@ export default async function LessonPage({ params }: Params): Promise<ReactNode>
         </>
       ) : (
         <p className="ws-muted" style={{ textAlign: "center" }} role="alert">
-          We couldn&apos;t load this lesson just now.{" "}
+          We couldn&apos;t load this lesson just now (code: {reason}).{" "}
           <Link href={`/read/${translation.slug}/${chapterId}`}>Try the reader instead →</Link>
         </p>
       )}
