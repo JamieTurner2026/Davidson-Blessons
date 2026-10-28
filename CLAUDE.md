@@ -6,7 +6,7 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 (`~/.claude/skills/woset`). Scripture comes live from **API.Bible**; illustrations were generated with **Magnific**.
 
 ## Links
-- Repo: https://github.com/JamieTurner2026/Davidson-Blessons (home of the combined app; Selah's old repo marleevison/selah is the source of the code). Live: https://davidson-blessons.vercel.app (sales page: `/welcome`; production follows `main`). Branch preview: https://davison-blesson-git-claude-lov-f91044-jamieturner2026s-projects.vercel.app. https://selah-rho-sable.vercel.app is the legacy Selah site, not this app's home.
+- Repo: https://github.com/JamieTurner2026/Davidson-Blessons (home of the combined app; Selah's old repo marleevison/selah is the source of the code). Live: https://davison-blesson.vercel.app (sales page: `/welcome`; production follows `main`). Branch preview: https://davison-blesson-git-claude-lov-f91044-jamieturner2026s-projects.vercel.app. https://selah-rho-sable.vercel.app is the legacy Selah site, not this app's home.
 
 ## Commands
 - `npm run dev` — dev server (preview config `selah` in `~/Documents/Claude/.claude/launch.json`, port 3410)
@@ -16,7 +16,7 @@ Next.js 16 (App Router) + TypeScript strict + Tailwind v4, styled with the **Wos
 - **`API_BIBLE_KEY` is server-only.** It is read only in `lib/apibible.ts` (`import "server-only"`). Never prefix it `NEXT_PUBLIC_`, never import `lib/apibible.ts` from a client component. After builds, `grep -r "$API_BIBLE_KEY" .next` must find nothing.
 - **Allowlist only.** New translations go in `lib/bibles.ts`; chapter/verse IDs are validated against the static canon in `lib/canon.ts` before any API call.
 - **Licensing.** Every rendered scripture response must (1) show its `copyright` string and (2) report its `fumsToken` via `<Fums token=… />` (API.Bible FUMS v3). NIV is copyrighted — keep both in place.
-- **Local first, optional account.** Highlights, memory verses and game progress live in localStorage (`lib/study-store.ts`, key `selah:v1`, Zod-validated). Signing in (Supabase project `selah`, email link + Google) syncs that state to one `public.progress` row per user. RLS is owner-only, and every pull **merges** (`lib/merge.ts`; never overwrite). Selah must keep working fully signed out. Setup steps: `docs/RUNBOOKS.md`.
+- **Local first, optional account.** Highlights, memory verses and game progress live in localStorage (`lib/study-store.ts`, key `selah:v1`, Zod-validated). Signing in (a Supabase project created for this app, email link + Google; schema in `docs/supabase-setup.sql`) syncs that state to one `public.progress` row per user. RLS is owner-only, and every pull **merges** (`lib/merge.ts`; never overwrite). Selah must keep working fully signed out. Setup steps: `docs/RUNBOOKS.md`.
 - **Supabase keys:** only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public by design). Never add a service-role key to this app. A new field in the study state needs a rule in `mergeStudy` and a case in `scripts/check-merge.ts`.
 - **Woset guardrails:** one marigold fill per viewport, no shadows/gradients, pills (30px) for controls, square art, 15/25/95 type. Approved exceptions: scripture body 19px/1.6; playful GSAP motion (always behind reduced-motion checks).
 - **Gamification ethos:** encourage, never punish (rest days, paper-Bible check-in, no leaderboards). Any new XP source needs a daily cap in `XP_RULES`.

@@ -2,24 +2,29 @@
 
 ## Accounts (Supabase) — one-time setup
 
-Selah's optional sign-in uses the Supabase project **selah** (`gohyiyppobpqfxrsnlns`, us-east-1, free).
-The table, access rules and keep-alive are already in place. These four dashboard steps make
-sign-in work for everyone. Until they're done, Selah works signed out as before.
+Optional sign-in uses a Supabase project (email link + Google). Each person's progress is one
+private row in `public.progress`. Until these steps are done, the app works signed out as before.
+
+### 0. Create the database (new Supabase project)
+1. In Supabase, create a project (free plan is fine) and wait for it to finish starting.
+2. Open **SQL Editor → New query**, paste everything in `docs/supabase-setup.sql`, and run it.
+   It creates the `progress` table, owner-only access rules and the keep-alive `ping()` function.
+3. **Project Settings → API Keys**: copy the project URL and the `sb_publishable_…` key (see step 4).
 
 ### 1. Supabase → Authentication → URL Configuration
-- **Site URL:** `https://selah-rho-sable.vercel.app`
-- **Redirect URLs** (add both):
-  - `https://selah-rho-sable.vercel.app/auth/callback`
+- **Site URL:** `https://davison-blesson.vercel.app`
+- **Redirect URLs** (add):
+  - `https://davison-blesson.vercel.app/auth/callback`
   - `http://localhost:3410/auth/callback`
 
 Without this, sign-in links send people to `localhost:3000`.
 
 ### 2. Google sign-in
 1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create a project
-   (e.g. "Selah").
-2. Set up the OAuth consent screen: External, app name "Selah", your email as support contact.
+   (e.g. "Davidson Blessons").
+2. Set up the OAuth consent screen: External, app name "Davidson Blessons", your email as support contact.
 3. Create an OAuth client ID of type **Web application**.
-   - **Authorized redirect URI:** `https://gohyiyppobpqfxrsnlns.supabase.co/auth/v1/callback`
+   - **Authorized redirect URI:** `https://<your-project-ref>.supabase.co/auth/v1/callback`
 4. Copy the client ID and secret into **Supabase → Authentication → Sign In / Providers → Google**,
    and turn it on.
 
@@ -31,14 +36,14 @@ Supabase's built-in email only sends to members of your Supabase team, a few per
 2. Go to **Supabase → Authentication → Emails → SMTP Settings** and enable custom SMTP:
    - host `smtp.resend.com`, port `465`
    - username `resend`, password = the Resend API key
-   - sender name "Selah"
-3. Optional: under **Emails → Templates → Magic Link**, change the subject to "Your Selah
+   - sender name "Davidson Blessons"
+3. Optional: under **Emails → Templates → Magic Link**, change the subject to "Your Davidson Blessons
    sign-in link".
 
 ### 4. Vercel environment variables (Production + Preview)
 | Name | Value |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://gohyiyppobpqfxrsnlns.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<your-project-ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the `sb_publishable_…` key (Supabase → Project Settings → API Keys) |
 | `CRON_SECRET` *(optional)* | any long random string; Vercel sends it to `/api/keepalive` |
 
