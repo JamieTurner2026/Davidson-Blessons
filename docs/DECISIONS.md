@@ -131,3 +131,15 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - User-facing name is now **Davidson Blessons** (nav, footer, titles, welcome page, README, package name).
 - **Deliberately unchanged:** localStorage key `selah:v1`, auth storage key `selah:auth`, the Supabase project/table. Renaming them would wipe saved progress and sign-ins.
 - Ported from the old Vite app: chapters-read progress on `/journey` (`components/ProgressCandle.tsx`, reuses the reading-driven `chaptersRead` instead of a second "learned" key) and an outlined chapter button where study notes exist (`getNotesIndex` in `lib/notes.ts`).
+
+## 2026-10-27 — Sign-in required: tap your name, enter your password
+- **Decided (owner's request):** everyone signs in before using the app, so each person has their own study session. Replaces the 2026-10-10 "optional accounts, works fully signed out" decision.
+- **Name tiles + password, no email** (owner's choice, modelled on the DDA2 training app). The sign-in screen lists members by name from a public `profiles` table (display name + placeholder sign-in address only); tap your name, enter your password. "New member" signs up with a name and password. Supabase keys accounts by email, so each member gets `<name-slug>-<random>@davidson-blessons.vercel.app`; the domain is the app's own, so mail could never reach a third party. "Confirm email" must be off. Passwords need at least 8 characters.
+- **Why passwords, not the training app's 4-digit PIN:** this is a public website, and a 4-digit PIN (10,000 possibilities, lockout only per device) could be guessed through the API, exposing someone's private journal. Names being public was accepted as part of the tile design.
+- **The name tile is self-healing:** the display name is also stored in the account's metadata, and every sign-in adds the `profiles` row if it's missing (`ensureProfile`).
+- **No self-service reset** (there's no email to send it to). Signed-in readers can change their password on `/journey#account`; a forgotten password is reset by the owner in Supabase (`docs/RUNBOOKS.md`).
+- **One working copy per person.** localStorage moved from the single `selah:v1` key to `selah:v1:user:<id>`, chosen on every auth change (`setStudyScope`). The first account to sign in on a browser takes over whatever was saved under the old key. Nothing is saved while signed out.
+- **Sign-out clears the browser copy** after a successful push, so the next person on a shared device starts fresh. If the push fails, the reader stays signed in and is told why. "Delete synced progress" became "Delete my progress": it erases the account row and the browser copy (the login itself stays).
+- **Still browser-only auth** (no cookies or server session, as decided on 2026-10-10). The gate is a sign-in requirement, not a content wall: pages still render on the server and Scripture is public. Each person's data is protected by RLS.
+- **Check:** `npx tsx scripts/check-scope.mts` (two readers sharing a browser).
+

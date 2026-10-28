@@ -455,7 +455,7 @@ a.tile:hover { border-color: var(--ws-accent); }
 .nav-icon:hover { background: var(--ws-accent-wash); }
 .nav-icon[aria-pressed="false"] { color: var(--ws-muted); }
 .nav-oil { padding: 4px 11px 2px 8px; gap: 5px; }
-/* Account: a quiet pill when signed out, a round initial when signed in. */
+/* Account: the signed-in reader's round initial in the nav. */
 .nav-account { display: inline-flex; align-items: center; justify-content: center; border: var(--border-hairline); border-radius: var(--radius-pill); padding: 4px 12px 3px; line-height: 1; }
 .nav-account:hover { text-decoration: none; border-color: var(--ws-fg); }
 .nav-account--signed-in { width: 28px; height: 28px; padding: 0; font-weight: var(--font-weight-medium); }
@@ -553,3 +553,22 @@ a.tile:hover { border-color: var(--ws-accent); }
 .journal__box { font: inherit; letter-spacing: inherit; color: var(--ws-fg); background: none; border: var(--border-hairline); border-radius: 16px; padding: 12px 14px; resize: vertical; width: 100%; }
 .journal__box:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
 .journal__status { min-height: 18px; margin: 0; font-size: 12px; }
+
+/* ── Sign-in gate (components/SignInGate.tsx) ───────────────────── */
+.gate { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--element-gap); align-items: center; min-height: calc(100vh - 80px); padding-block: 40px; }
+.gate__art { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 16px; }
+.gate__panel { gap: 14px; max-width: 420px; width: 100%; padding: 0; }
+.gate__panel .ws-input { width: 100%; }
+.gate__message { margin: 0; }
+.gate__loading { text-align: center; padding-top: 120px; }
+@media (max-width: 760px) {
+  .gate { grid-template-columns: 1fr; min-height: 0; padding-block: 24px; }
+  .gate__art { max-width: 220px; margin-inline: auto; }
+}
+.gate__tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
+.gate__tile { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; border: var(--border-hairline); border-radius: 16px; background: none; color: var(--ws-fg); font: inherit; cursor: pointer; }
+.gate__tile:hover { border-color: var(--ws-fg); }
+.gate__tile:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
+.gate__avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--ws-accent-wash); font-size: 18px; font-weight: 500; }
+.gate__avatar--new { background: none; border: var(--border-hairline); }
+.gate__name { font-size: 13px; text-align: center; overflow-wrap: anywhere; }

@@ -6,6 +6,7 @@ import { AccountSync } from "@/components/AccountSync";
 import { Footer } from "@/components/Footer";
 import { Celebrations } from "@/components/motion/Celebrations";
 import { Nav } from "@/components/Nav";
+import { SignInGate } from "@/components/SignInGate";
 import "./globals.css";
 
 // Woset: Inter Tight stands in for Macan. Never load weights above 500.
@@ -24,14 +25,16 @@ export default function RootLayout({ children }: { children: ReactNode }): React
   return (
     <html lang="en" className={interTight.variable}>
       <body>
-        <div className="ws-container">
-          <Nav />
-        </div>
-        <main className="ws-container">{children}</main>
-        <div className="ws-container">
-          <Footer />
-        </div>
-        <Celebrations />
+        <SignInGate>
+          <div className="ws-container">
+            <Nav />
+          </div>
+          <main className="ws-container">{children}</main>
+          <div className="ws-container">
+            <Footer />
+          </div>
+          <Celebrations />
+        </SignInGate>
         <AccountSync />
       </body>
     </html>

@@ -1,4 +1,4 @@
--- Davidson Blessons: one-time database setup for sign-in and progress sync.
+-- Davidson Blessons: one-time database setup for sign-in (name tiles + password) and progress sync.
 -- Paste into Supabase > SQL Editor > New query > Run. Safe to run more than once.
 
 create table if not exists public.progress (
@@ -56,3 +56,33 @@ set search_path = ''
 as $$ select true; $$;
 
 grant execute on function public.ping() to anon, authenticated;
+
+-- The member list behind the "tap your name" sign-in screen. It holds only a display name and the
+-- placeholder sign-in address (never progress). Anyone can read it, which is how the name tiles
+-- work; each member can only add, change or remove their own entry.
+create table if not exists public.profiles (
+  id           uuid primary key references auth.users (id) on delete cascade,
+  display_name text not null check (char_length(display_name) between 1 and 30),
+  username_key text not null unique,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+grant select on public.profiles to anon;
+grant select, insert, update, delete on public.profiles to authenticated;
+
+drop policy if exists "profiles_select_all" on public.profiles;
+drop policy if exists "profiles_insert_own" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
+drop policy if exists "profiles_delete_own" on public.profiles;
+
+create policy "profiles_select_all" on public.profiles
+  for select to anon, authenticated using (true);
+create policy "profiles_insert_own" on public.profiles
+  for insert to authenticated with check ((select auth.uid()) = id);
+create policy "profiles_update_own" on public.profiles
+  for update to authenticated
+  using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+create policy "profiles_delete_own" on public.profiles
+  for delete to authenticated using ((select auth.uid()) = id);

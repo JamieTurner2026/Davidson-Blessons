@@ -12,7 +12,7 @@ const paramsSchema = z.object({
   error_description: z.string().max(300).optional(),
 });
 
-/** Lands here from the email link or Google, finishes sign-in, then returns to the account panel. */
+/** Lands here from the account-confirmation email, finishes sign-in, then opens the app. */
 export function SignInCallback(): ReactNode {
   const router = useRouter();
   const [problem, setProblem] = useState<string | null>(null);
@@ -21,13 +21,13 @@ export function SignInCallback(): ReactNode {
     const params = paramsSchema.safeParse(Object.fromEntries(new URLSearchParams(window.location.search)));
     const run = async (): Promise<void> => {
       if (!params.success || !params.data.code) {
-        setProblem(params.success && params.data.error_description ? params.data.error_description : "This sign-in link is missing its code.");
+        setProblem(params.success && params.data.error_description ? params.data.error_description : "This link is missing its code.");
         return;
       }
       const error = await finishSignIn(params.data.code);
       // PKCE: the link only completes in the browser that asked for it (it holds the verifier).
-      if (error) setProblem("That sign-in link didn't work. Links work once, expire after an hour, and must be opened in the same browser you requested them from. Request a new one and try again.");
-      else router.replace("/journey#account");
+      if (error) setProblem("That confirmation link didn't work. Links work once and expire after a day. Try signing in: if your account is already confirmed, it will just work.");
+      else router.replace("/");
     };
     void run();
   }, [router]);
@@ -38,8 +38,8 @@ export function SignInCallback(): ReactNode {
       <p className="ws-muted" role="alert">
         {problem}
       </p>
-      <Link className="ws-pill" href="/journey#account">
-        Try again
+      <Link className="ws-pill" href="/">
+        Go to sign in
       </Link>
     </>
   ) : (

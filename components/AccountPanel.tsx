@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import { BackupPanel } from "@/components/BackupPanel";
-import { deleteSyncedProgress, sendSignInLink, signInWithGoogle, signOut, useAccount, type AccountState } from "@/lib/sync";
+import { changePassword, deleteSyncedProgress, PASSWORD_MIN, signOut, useAccount, type AccountState } from "@/lib/sync";
 
 function syncLine(account: AccountState): string {
   if (account.status === "syncing") return "Syncing…";
@@ -15,90 +15,83 @@ function syncLine(account: AccountState): string {
   return "Synced";
 }
 
-function SignedOut(): ReactNode {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+const CONFIRM_WORD = "DELETE";
+
+/** Accounts have no email, so this is the only way to replace a password (besides the owner). */
+function ChangePassword(): ReactNode {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const sendLink = async (): Promise<void> => {
+  const save = async (event: FormEvent): Promise<void> => {
+    event.preventDefault();
+    if (next !== again) {
+      setResult({ ok: false, text: "The two new passwords don't match." });
+      return;
+    }
     setBusy(true);
-    setProblem(null);
-    const error = await sendSignInLink(email);
+    const error = await changePassword(current, next);
     setBusy(false);
-    if (error) setProblem(error);
-    else setSent(true);
+    if (error) setResult({ ok: false, text: error });
+    else {
+      setResult({ ok: true, text: "Password changed." });
+      setCurrent("");
+      setNext("");
+      setAgain("");
+      setOpen(false);
+    }
   };
-
-  const google = async (): Promise<void> => {
-    setProblem(null);
-    const error = await signInWithGoogle();
-    if (error) setProblem(error);
-  };
-
-  if (sent) {
-    return (
-      <div className="ws-stack" style={{ gap: 10, padding: 0 }} role="status">
-        <strong style={{ fontWeight: 500 }}>Check your inbox</strong>
-        <span className="ws-muted">
-          We sent a sign-in link to {email.trim()}. Open it in this browser. It works once and expires in an hour.
-        </span>
-        <div className="ws-pills ws-pills--start">
-          <button type="button" className="ws-pill ws-pill--sm" onClick={() => setSent(false)}>
-            Use a different email
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="ws-stack" style={{ gap: 14, padding: 0 }}>
-      <span className="ws-muted">
-        Optional. Sign in to save your progress to an account and pick it up on any device. Nothing changes if you don&apos;t.
-      </span>
-      <form
-        className="ws-pills ws-pills--start"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void sendLink();
-        }}
-      >
-        <label htmlFor="account-email" className="sr-only">
-          Email
-        </label>
-        <input
-          id="account-email"
-          className="ws-input"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          required
-          maxLength={254}
-          placeholder="you@example.com"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          style={{ flex: "1 1 220px" }}
-        />
-        <button type="submit" className="ws-pill ws-pill--primary" disabled={busy}>
-          {busy ? "Sending…" : "Email me a sign-in link"}
-        </button>
-      </form>
+    <div className="ws-stack" style={{ gap: 10, padding: 0 }}>
       <div className="ws-pills ws-pills--start">
-        <button type="button" className="ws-pill" onClick={() => void google()}>
-          Continue with Google
+        <button type="button" className="ws-pill" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          Change password
         </button>
       </div>
-      {problem && (
-        <span className="ws-muted" role="alert">
-          {problem}
+      {open && (
+        <form className="ws-stack gate__panel" onSubmit={(event) => void save(event)} noValidate>
+          {(
+            [
+              ["account-current", "Current password", current, setCurrent, "current-password"],
+              ["account-new", `New password (at least ${PASSWORD_MIN} characters)`, next, setNext, "new-password"],
+              ["account-again", "Type the new password again", again, setAgain, "new-password"],
+            ] as const
+          ).map(([id, label, value, setValue, autoComplete]) => (
+            <div key={id} className="ws-stack" style={{ gap: 6, padding: 0 }}>
+              <label htmlFor={id} className="ws-label">
+                {label}
+              </label>
+              <input
+                id={id}
+                className="ws-input"
+                type="password"
+                autoComplete={autoComplete}
+                required
+                maxLength={72}
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+              />
+            </div>
+          ))}
+          <div className="ws-pills ws-pills--start">
+            <button type="submit" className="ws-pill" disabled={busy}>
+              {busy ? "Saving…" : "Save new password"}
+            </button>
+          </div>
+        </form>
+      )}
+      {result && (
+        <span className={result.ok ? undefined : "ws-muted"} role={result.ok ? "status" : "alert"}>
+          {result.text}
         </span>
       )}
     </div>
   );
 }
-
-const CONFIRM_WORD = "DELETE";
 
 function SignedIn({ account }: { account: AccountState }): ReactNode {
   const [confirming, setConfirming] = useState(false);
@@ -117,24 +110,32 @@ function SignedIn({ account }: { account: AccountState }): ReactNode {
   return (
     <div className="ws-stack" style={{ gap: 14, padding: 0 }}>
       <span>
-        Signed in as <strong style={{ fontWeight: 500 }}>{account.email ?? "your account"}</strong>
+        Signed in as <strong style={{ fontWeight: 500 }}>{account.name ?? "your account"}</strong>
       </span>
       <span className="ws-muted" role="status">
         {syncLine(account)}
       </span>
       <div className="ws-pills ws-pills--start">
-        <button type="button" className="ws-pill" onClick={() => void signOut()}>
+        <button
+          type="button"
+          className="ws-pill"
+          onClick={() => {
+            setProblem(null);
+            void signOut().then((error) => error && setProblem(error));
+          }}
+        >
           Sign out
         </button>
         <button type="button" className="ws-pill" onClick={() => setConfirming((value) => !value)} aria-expanded={confirming}>
-          Delete synced progress
+          Delete my progress
         </button>
       </div>
-      <span className="ws-muted">Signing out keeps your progress in this browser.</span>
+      <ChangePassword />
+      <span className="ws-muted">Signing out saves your progress to your account and clears it from this browser, so whoever signs in next starts fresh.</span>
       {confirming && (
         <div className="ws-stack" style={{ gap: 10, padding: 0 }}>
           <label htmlFor="account-delete-confirm" className="ws-muted">
-            This removes the copy saved to your account and signs you out. This browser keeps its copy. Type {CONFIRM_WORD} to confirm.
+            This permanently erases your progress, highlights, memory verses and journal from your account and this browser, then signs you out. Your login stays, so you can start over. Type {CONFIRM_WORD} to confirm.
           </label>
           <div className="ws-pills ws-pills--start">
             <input
@@ -160,19 +161,13 @@ function SignedIn({ account }: { account: AccountState }): ReactNode {
   );
 }
 
-/** Journey page: optional sign-in + sync, with the backup file as a quieter alternative. */
+/** Journey page: who's signed in, sync status, sign out, and the backup file. */
 export function AccountPanel(): ReactNode {
   const account = useAccount();
   return (
     <section id="account" style={{ display: "flex", flexDirection: "column", gap: 22, scrollMarginTop: 30 }}>
       <h2 className="ws-heading">Your account</h2>
-      {account.status === "off" ? (
-        <span className="ws-muted">Accounts aren&apos;t available right now. Your progress is saved in this browser.</span>
-      ) : account.userId ? (
-        <SignedIn account={account} />
-      ) : (
-        <SignedOut />
-      )}
+      {account.userId && <SignedIn account={account} />}
       <details className="account__backup">
         <summary className="ws-muted">Prefer a file? Save or restore a backup</summary>
         <BackupPanel heading={false} />

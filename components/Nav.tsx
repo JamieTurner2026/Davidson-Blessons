@@ -28,20 +28,14 @@ function OilJar(): ReactNode {
   );
 }
 
-/** "Sign in" when signed out; the reader's initial when signed in. Hidden if accounts are off. */
+/** The signed-in reader's initial, linking to their account (the nav only shows once signed in). */
 function AccountChip(): ReactNode {
   const account = useAccount();
-  if (account.status === "off") return null;
-  if (!account.userId) {
-    return (
-      <Link href="/journey#account" className="nav-account">
-        Sign in
-      </Link>
-    );
-  }
-  const initial = (account.email ?? "?").trim().charAt(0).toUpperCase();
+  if (!account.userId) return null;
+  const name = account.name;
+  const initial = (name ?? "?").trim().charAt(0).toUpperCase();
   return (
-    <Link href="/journey#account" className="nav-account nav-account--signed-in" aria-label={`Account: ${account.email ?? "signed in"}`} title={account.email ?? undefined}>
+    <Link href="/journey#account" className="nav-account nav-account--signed-in" aria-label={`Account: ${name ?? "signed in"}`} title={name ?? undefined}>
       {initial}
     </Link>
   );
