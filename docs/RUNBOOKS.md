@@ -3,24 +3,30 @@
 ## Accounts (Supabase) — one-time setup
 
 Sign-in is **required** and works like the DDA2 training app: **tap your name, then enter your
-password** (no email). It uses the Supabase project **selah** (`gohyiyppobpqfxrsnlns`, us-east-1,
-free). The `progress` table, its owner-only access rules and the keep-alive are already in place.
-Until steps 1–3 are done, the app can't sign anyone in, so do them **before** deploying the sign-in
-change to production.
+password** (no email). It uses a Supabase project created for this app (free plan is fine). Each
+person's progress is one private row in `public.progress`. Until steps 1–3 are done, the app can't
+sign anyone in, so do them **before** deploying the sign-in change to production.
 
-### 1. Vercel environment variables (Production, Preview and Development)
+### 1. Create the database (new Supabase project)
+1. In Supabase, create a project and wait for it to finish starting.
+2. Open **SQL Editor → New query**, paste everything in `docs/supabase-setup.sql`, and run it.
+   It creates the `progress` table, the `profiles` member list for the name tiles, their access
+   rules and the keep-alive `ping()` function. It's safe to run more than once.
+3. **Project Settings → API Keys**: copy the project URL and the `sb_publishable_…` key (step 2).
+
+### 2. Vercel environment variables (Production, Preview and Development)
 In the **davison-blesson** project → Settings → Environment Variables:
 
 | Name | Value |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://gohyiyppobpqfxrsnlns.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<your-project-ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the `sb_publishable_…` key (Supabase → Project Settings → API Keys) |
 | `CRON_SECRET` *(optional)* | any long random string; Vercel sends it to `/api/keepalive` |
 
 Both `NEXT_PUBLIC_` values are public by design: Row Level Security protects the data. Redeploy
 after adding them, because they're built into the page.
 
-### 2. Supabase → Authentication → Sign In / Providers → Email
+### 3. Supabase → Authentication → Sign In / Providers → Email
 - **Enable Email provider:** on. (Each member is stored with a placeholder email behind the scenes.)
 - **Confirm email:** **off.** This is required: with it on, new members would wait for an email that
   can never arrive, and the sign-up screen says "sign-up isn't set up correctly".
@@ -28,29 +34,10 @@ after adding them, because they're built into the page.
 - Google and the email-link ("magic link") sign-in aren't used; leave them off. No email service
   (Resend) is needed.
 
-### 3. Supabase → SQL Editor: the member list
-The sign-in screen lists members by name from `public.profiles`. It holds only a display name and
-the placeholder sign-in address, never progress. Anyone can read the list (that's how the name
-tiles work); each member can only add or change their own entry. Run once:
-
-```sql
-create table if not exists public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  display_name text not null check (char_length(display_name) between 1 and 30),
-  username_key text not null unique,
-  created_at timestamptz not null default now()
-);
-alter table public.profiles enable row level security;
-
-create policy "Members are listed on the sign-in screen" on public.profiles
-  for select to anon, authenticated using (true);
-create policy "Members add their own entry" on public.profiles
-  for insert to authenticated with check ((select auth.uid()) = id);
-create policy "Members edit their own entry" on public.profiles
-  for update to authenticated using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
-create policy "Members remove their own entry" on public.profiles
-  for delete to authenticated using ((select auth.uid()) = id);
-```
+### 4. About the member list
+The sign-in screen lists members by name from `public.profiles` (created in step 1). It holds only a
+display name and the placeholder sign-in address, never progress. Anyone can read the list (that's
+how the name tiles work); each member can only add or change their own entry.
 
 ### Removing a member or resetting a forgotten password (owner)
 There's no email, so members can't reset their own password. In **Supabase → SQL Editor**:
