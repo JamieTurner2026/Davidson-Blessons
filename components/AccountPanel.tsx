@@ -174,7 +174,7 @@ export function AccountPanel(): ReactNode {
         <SignedOut />
       )}
       <details className="account__backup">
-        <summary className="ws-muted">Prefer a file? Save or restore a backup</summary>
+        <summary className="ws-muted">No account? Move your progress with a text code or backup</summary>
         <BackupPanel heading={false} />
       </details>
     </section>

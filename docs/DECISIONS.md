@@ -131,3 +131,8 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - User-facing name is now **Davidson Blessons** (nav, footer, titles, welcome page, README, package name).
 - **Deliberately unchanged:** localStorage key `selah:v1`, auth storage key `selah:auth`, the Supabase project/table. Renaming them would wipe saved progress and sign-ins.
 - Ported from the old Vite app: chapters-read progress on `/journey` (`components/ProgressCandle.tsx`, reuses the reading-driven `chaptersRead` instead of a second "learned" key) and an outlined chapter button where study notes exist (`getNotesIndex` in `lib/notes.ts`).
+
+## 2026-10-29 — Progress codes (move progress by text)
+- **Share progress code** (Journey → Your account → "No account? Move your progress with a text code or backup"): `lib/transfer.ts` turns the progress JSON into `DB1:` + base64url(gzip) text, short enough for any messaging app. Uses the phone's share sheet when available, otherwise the clipboard. `DB0:` is the uncompressed fallback for browsers without `CompressionStream`.
+- **Pasting a code merges, it never replaces** (`mergeImportedStudy` → `mergeStudy`), so a code from an old device can't wipe newer progress. The backup *file* restore still replaces (unchanged).
+- A code is just the progress data, not a login: anyone who has the text can add that progress to their own device, so it is for sharing with yourself. Contents are validated with the study schema before use. Checked by `scripts/check-transfer.ts`.
