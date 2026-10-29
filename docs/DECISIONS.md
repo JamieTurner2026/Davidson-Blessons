@@ -136,3 +136,11 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - **Share progress code** (Journey → Your account → "No account? Move your progress with a text code or backup"): `lib/transfer.ts` turns the progress JSON into `DB1:` + base64url(gzip) text, short enough for any messaging app. Uses the phone's share sheet when available, otherwise the clipboard. `DB0:` is the uncompressed fallback for browsers without `CompressionStream`.
 - **Pasting a code merges, it never replaces** (`mergeImportedStudy` → `mergeStudy`), so a code from an old device can't wipe newer progress. The backup *file* restore still replaces (unchanged).
 - A code is just the progress data, not a login: anyone who has the text can add that progress to their own device, so it is for sharing with yourself. Contents are validated with the study schema before use. Checked by `scripts/check-transfer.ts`.
+
+## 2026-10-29 — Username + password sign-in
+- **Why:** learners shouldn't need an email address or an email service. Supabase Auth only knows emails, so a username is mapped to `<username>@users.davison-blesson.invalid` (`.invalid` can never receive mail) and signed in with `signUp` / `signInWithPassword`. The panel shows the username (`displayName`); real emails (email link / Google) are untouched.
+- **Rules:** usernames are lower-cased, 3–24 characters (`a–z 0–9 . _ -`); passwords 8–72 bytes. Error text is our own wording (`passwordAuthMessage`), never the server's.
+- **Needs in Supabase:** Confirm email OFF, minimum password length 8+ (`docs/RUNBOOKS.md` step 0b).
+- **No self-service reset:** there is no mailbox. The owner resets or deletes a user in the Supabase dashboard; signed-in people can change their own password.
+- **Trade-off (accepted):** with Confirm email off, someone could pre-register a real email with their own password. Only progress data is at risk. Options later: drop the email-link/Google extras, or add a Supabase "Before user created" hook.
+- Verified with `scripts/check-username.ts` and a browser run against a fake auth server (create, wrong password, sign in, duplicate name in a different case).

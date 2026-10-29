@@ -11,6 +11,24 @@ private row in `public.progress`. Until these steps are done, the app works sign
    It creates the `progress` table, owner-only access rules and the keep-alive `ping()` function.
 3. **Project Settings → API Keys**: copy the project URL and the `sb_publishable_…` key (see step 4).
 
+### 0b. Username + password sign-in
+People can sign in with a username and password (no email needed). The username is stored as a
+made-up address on a domain that can't receive mail (`<username>@users.davison-blesson.invalid`).
+In **Supabase → Authentication → Sign In / Providers → Email**:
+- Keep **Enable Email provider** on.
+- Turn **Confirm email OFF**. Otherwise sign-up waits for a confirmation mail that is never sent.
+- Set **Minimum password length** to 8 or more (the app also checks 8).
+- Leave Supabase's built-in rate limits on (Authentication → Rate Limits).
+
+Forgotten passwords can't be reset by email for these accounts. The person who runs the app resets
+them in **Authentication → Users**: open the user, then use the menu to delete the account or set a
+new password. Signed-in people can change their own password under "Change password".
+
+Known trade-off: with Confirm email off, anyone calling the public API could register a *real*
+email address with a password of their own, and that person's email-link or Google sign-in would then
+land in the same account. Only study progress is at risk. If that matters, turn off the email-link and
+Google options in `components/AccountPanel.tsx`.
+
 ### 1. Supabase → Authentication → URL Configuration
 - **Site URL:** `https://davison-blesson.vercel.app`
 - **Redirect URLs** (add):
