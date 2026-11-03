@@ -8,6 +8,10 @@ export function Footer(): ReactNode {
       </span>
       <span>
         Scripture via{" "}
+        <a href="https://github.com/JamieTurner2026/API-bible" target="_blank" rel="noreferrer">
+          our Bible API
+        </a>{" "}
+        (BSB, WEB, ASV) and{" "}
         <a href="https://scripture.api.bible" target="_blank" rel="noreferrer">
           API.Bible
         </a>
