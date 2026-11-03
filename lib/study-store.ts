@@ -31,6 +31,7 @@ import {
   type LevelInfo,
   type StreakInfo,
 } from "@/lib/game";
+import { mergeStudy } from "@/lib/merge";
 
 // Everything personal lives in this browser only. One versioned key, Zod-checked on
 // read. A value that fails the check is backed up untouched, then salvaged field by
@@ -584,6 +585,21 @@ export function setJournal(chapterId: string, text: string): void {
 
 export function exportStudy(): string {
   return JSON.stringify(getSnapshot(), null, 2);
+}
+
+/** Validated progress from text (a backup file or a transfer code), or null if it isn't valid. */
+export function parseStudy(json: string): StudyState | null {
+  try {
+    const result = studySchema.safeParse(JSON.parse(json));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Adds imported progress to this browser's. Unlike importStudy it never overwrites: it merges. */
+export function mergeImportedStudy(imported: StudyState): void {
+  write(mergeStudy(getSnapshot(), imported));
 }
 
 /** Replaces local data with an exported file. Returns false if the file is invalid. */
