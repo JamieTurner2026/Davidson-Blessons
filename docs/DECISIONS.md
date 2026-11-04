@@ -144,3 +144,10 @@ Full results: `docs/AUDIT-2026-10-09.md`. Decisions made:
 - **No self-service reset:** there is no mailbox. The owner resets or deletes a user in the Supabase dashboard; signed-in people can change their own password.
 - **Trade-off (accepted):** with Confirm email off, someone could pre-register a real email with their own password. Only progress data is at risk. Options later: drop the email-link/Google extras, or add a Supabase "Before user created" hook.
 - Verified with `scripts/check-username.ts` and a browser run against a fake auth server (create, wrong password, sign in, duplicate name in a different case).
+
+## 2026-11-03 — Public-domain translations from our own Bible API
+
+- **BSB, WEB and ASV come from our own Bible API** (https://github.com/JamieTurner2026/API-bible, deployed at https://api-bible-one.vercel.app) instead of API.Bible, so the default translation and two others spend no API.Bible quota. NIV, KJV and LSV stay on API.Bible.
+- **Opt-in per translation:** `selfHosted` in `lib/bibles.ts`; `lib/apibible.ts` hands those to `lib/selfbible.ts`. Same `Chapter` / `VerseText` / `SearchResult` shapes, so pages and components are unchanged.
+- **Verse IDs unchanged.** The API speaks USFM book codes and returns `verseId`s like `JHN.3.16`, so highlights, memory verses and the VOTD pool keep working.
+- **Trade-offs:** that API has no section headings or paragraph breaks, so self-hosted chapters render one block per verse (poetry style for Job, Psalms, Proverbs, Song, Lamentations). Psalm titles are part of verse 1. Verses a translation omits (e.g. Matt 17:21 in BSB) are skipped. Search is a phrase match rather than API.Bible's word search. No FUMS token (public domain).

@@ -12,7 +12,7 @@ npm run dev
 
 Get a key at https://scripture.api.bible. Progress is stored in the browser (back it up from the Journey page).
 
-Scripture text © its respective publishers; displayed via API.Bible with FUMS usage reporting.
+BSB, WEB and ASV (public domain) come from our own [Bible API](https://github.com/JamieTurner2026/API-bible), which spends no API.Bible quota. NIV, KJV and LSV text © its respective publishers; displayed via API.Bible with FUMS usage reporting.
 
 ## Davidson Blessons study notes
 

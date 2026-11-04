@@ -10,6 +10,7 @@ import {
   type VerseText,
 } from "@/lib/schemas";
 import { normaliseChapter } from "@/lib/normalise";
+import * as selfBible from "@/lib/selfbible";
 
 const BASE_URL = "https://rest.api.bible/v1/bibles";
 const ONE_DAY = 60 * 60 * 24;
@@ -26,6 +27,7 @@ export class ApiBibleError extends Error {
 
 /** A short, non-secret code for why a request failed, safe to show on screen. */
 export function describeFailure(error: unknown): string {
+  if (error instanceof selfBible.SelfBibleError) return `bible-api-${error.status}`;
   if (error instanceof ApiBibleError) {
     return error.message.includes("API_BIBLE_KEY") ? "not-configured" : `api-${error.status}`;
   }
@@ -56,8 +58,11 @@ function collapse(text: string): string {
 }
 
 // ── Public API ────────────────────────────────────────────────────
+// Each function hands self-hosted (public-domain) translations to lib/selfbible.ts,
+// so only the remaining translations reach API.Bible.
 
 export async function getChapter(translation: Translation, chapterId: string): Promise<Chapter> {
+  if (translation.selfHosted) return selfBible.getChapter(translation, chapterId);
   const json = await request(
     `${translation.apiId}/chapters/${chapterId}`,
     {
@@ -81,6 +86,7 @@ export async function getChapter(translation: Translation, chapterId: string): P
 }
 
 export async function getVerse(translation: Translation, verseId: string): Promise<VerseText> {
+  if (translation.selfHosted) return selfBible.getVerse(translation, verseId);
   const json = await request(
     `${translation.apiId}/verses/${verseId}`,
     {
@@ -104,6 +110,7 @@ export async function getVerse(translation: Translation, verseId: string): Promi
 export const SEARCH_PAGE_SIZE = 20;
 
 export async function searchScripture(translation: Translation, query: string, offset: number): Promise<SearchResult> {
+  if (translation.selfHosted) return selfBible.searchScripture(translation, query, offset, SEARCH_PAGE_SIZE);
   const json = await request(
     `${translation.apiId}/search`,
     { query, limit: String(SEARCH_PAGE_SIZE), offset: String(offset), sort: "canonical" },

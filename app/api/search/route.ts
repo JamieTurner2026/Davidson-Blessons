@@ -2,9 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { ApiBibleError, searchScripture } from "@/lib/apibible";
 import { getTranslation } from "@/lib/bibles";
+import { SelfBibleError } from "@/lib/selfbible";
 import { searchQuerySchema, type SearchResult } from "@/lib/schemas";
 
-// The only public endpoint: proxies API.Bible search so the key never leaves the server.
+// The only public endpoint: proxies search (API.Bible, or our own Bible API for public-domain
+// translations) so the API.Bible key never leaves the server.
 export async function GET(request: NextRequest): Promise<NextResponse<SearchResult | { error: string }>> {
   const parsed = searchQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
   if (!parsed.success) {
@@ -22,7 +24,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<SearchResu
       headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
     });
   } catch (error) {
-    const status = error instanceof ApiBibleError && error.status < 500 ? 400 : 502;
+    const known = error instanceof ApiBibleError || error instanceof SelfBibleError;
+    const status = known && error.status < 500 ? 400 : 502;
     return NextResponse.json({ error: "Search is unavailable right now." }, { status });
   }
 }
